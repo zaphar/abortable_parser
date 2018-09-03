@@ -2,6 +2,7 @@
 use std::fmt::Display;
 use std::iter::Iterator;
 
+/// A trait for types that can have an offset as a count of processed items.
 pub trait Offsetable {
     fn get_offset(&self) -> usize;
 }
@@ -15,6 +16,9 @@ impl Offsetable for usize {
 /// A Cloneable Iterator that can report an offset as a count of processed Items.
 pub trait InputIter: Iterator + Clone + Offsetable {}
 
+/// The custom error type for use in `Result::{Fail, Abort}`.
+/// Stores a wrapped err that must implement Display as well as an offset and
+/// an optional cause.
 #[derive(Debug)]
 pub struct Error<E: Display> {
     err: E,
@@ -23,7 +27,7 @@ pub struct Error<E: Display> {
 }
 
 impl<E: Display> Error<E> {
-    // Constructs a new Error with an offset and no cause.
+    /// Constructs a new Error with an offset and no cause.
     pub fn new<S: Offsetable>(err: E, offset: &S) -> Self {
         Error {
             err: err,
@@ -32,7 +36,7 @@ impl<E: Display> Error<E> {
         }
     }
 
-    // Constructs a new Error with an offset and a cause.
+    /// Constructs a new Error with an offset and a cause.
     pub fn caused_by<S: Offsetable>(err: E, offset: &S, cause: Self) -> Self {
         Error {
             err: err,
@@ -41,10 +45,12 @@ impl<E: Display> Error<E> {
         }
     }
 
+    /// Returns the contained err.
     pub fn get_err<'a>(&'a self) -> &'a E {
         &self.err
     }
 
+    /// Returns `Some(cause)` if there is one, None otherwise.
     pub fn get_cause<'a>(&'a self) -> Option<&'a Error<E>> {
         match self.cause {
             Some(ref cause) => Some(cause),
@@ -52,6 +58,7 @@ impl<E: Display> Error<E> {
         }
     }
 
+    // Returns the offset at which this Error happened.
     pub fn get_offset(&self) -> usize {
         self.offset
     }
