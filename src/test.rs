@@ -1,5 +1,5 @@
 use super::iter::SliceIter;
-use super::{Result, Offsetable};
+use super::{Offsetable, Result};
 
 #[test]
 fn test_slice_iter() {
@@ -20,7 +20,7 @@ fn test_slice_iter() {
     assert_eq!('o' as u8, out[1]);
     assert_eq!('o' as u8, out[2]);
     assert_eq!(3, iter.get_offset());
-    
+
     out = Vec::new();
     for b in cloned {
         out.push(b.clone());
@@ -31,7 +31,7 @@ fn test_slice_iter() {
     assert_eq!('o' as u8, out[2]);
 }
 
-fn will_fail(i: SliceIter<u8>) -> Result<SliceIter<u8>, String, String>  {
+fn will_fail(i: SliceIter<u8>) -> Result<SliceIter<u8>, String, String> {
     Result::Fail(super::Error::new("AAAAHHH!!!".to_string(), &i))
 }
 
@@ -172,10 +172,7 @@ fn test_do_each() {
 fn test_either_idents() {
     let input_str = "foo";
     let iter = SliceIter::new(input_str.as_bytes());
-    let result = either!(iter,
-        will_fail,
-        will_fail,
-        parse_three);
+    let result = either!(iter, will_fail, will_fail, parse_three);
     assert!(result.is_complete());
     if let Result::Complete(_, o) = result {
         assert_eq!("foo".to_string(), o);
@@ -188,10 +185,7 @@ fn test_either_idents() {
 fn test_either_macros() {
     let input_str = "foo";
     let iter = SliceIter::new(input_str.as_bytes());
-    let result = either!(iter,
-        run!(will_fail),
-        run!(will_fail),
-        run!(parse_three));
+    let result = either!(iter, run!(will_fail), run!(will_fail), run!(parse_three));
     assert!(result.is_complete());
     if let Result::Complete(_, o) = result {
         assert_eq!("foo".to_string(), o);
@@ -204,9 +198,7 @@ fn test_either_macros() {
 fn test_either_fail() {
     let input_str = "foo";
     let iter = SliceIter::new(input_str.as_bytes());
-    let result = either!(iter,
-        run!(will_fail),
-        run!(will_fail));
+    let result = either!(iter, run!(will_fail), run!(will_fail));
     assert!(result.is_fail());
 }
 
@@ -214,10 +206,7 @@ fn test_either_fail() {
 fn test_either_abort() {
     let input_str = "foo";
     let iter = SliceIter::new(input_str.as_bytes());
-    let result = either!(iter,
-        must!(will_fail),
-        parse_three,
-        run!(will_fail));
+    let result = either!(iter, must!(will_fail), parse_three, run!(will_fail));
     assert!(result.is_abort());
 }
 

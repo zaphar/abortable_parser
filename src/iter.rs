@@ -1,8 +1,8 @@
 //! Contains implementations of `InputIter`.
-use std::iter::Iterator;
 use std::fmt::Debug;
+use std::iter::Iterator;
 
-use super::{Offsetable, InputIter};
+use super::{InputIter, Offsetable};
 
 /// Implements `InputIter` for any slice of T.
 #[derive(Debug)]
@@ -29,7 +29,7 @@ impl<'a, T: Debug + 'a> Iterator for SliceIter<'a, T> {
             Some(item) => {
                 self.offset += 1;
                 Some(item)
-            },
+            }
             None => None,
         }
     }

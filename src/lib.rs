@@ -1,6 +1,6 @@
 //! A parser combinator library with a focus on fully abortable parsing and error handling.
-use std::iter::Iterator;
 use std::fmt::Display;
+use std::iter::Iterator;
 
 pub trait Offsetable {
     fn get_offset(&self) -> usize;
@@ -25,7 +25,7 @@ pub struct Error<E: Display> {
 impl<E: Display> Error<E> {
     // Constructs a new Error with an offset and no cause.
     pub fn new<S: Offsetable>(err: E, offset: &S) -> Self {
-        Error{
+        Error {
             err: err,
             offset: offset.get_offset(),
             cause: None,
@@ -34,7 +34,7 @@ impl<E: Display> Error<E> {
 
     // Constructs a new Error with an offset and a cause.
     pub fn caused_by<S: Offsetable>(err: E, offset: &S, cause: Self) -> Self {
-        Error{
+        Error {
             err: err,
             offset: offset.get_offset(),
             cause: Some(Box::new(cause)),
@@ -62,9 +62,7 @@ impl<E: Display> Display for Error<E> {
         try!(write!(f, "{}", self.err));
         match self.cause {
             Some(ref c) => write!(f, "\n\tCaused By:{}", c),
-            None => {
-               Ok(()) 
-            },
+            None => Ok(()),
         }
     }
 }
@@ -87,31 +85,31 @@ impl<I: InputIter, O, E: Display> Result<I, O, E> {
     /// Returns true if the Result is Complete.
     pub fn is_complete(&self) -> bool {
         if let &Result::Complete(_, _) = self {
-             return true;
+            return true;
         }
         return false;
     }
 
-    /// Returns true if the Result is Incomoplete. 
+    /// Returns true if the Result is Incomoplete.
     pub fn is_incomplete(&self) -> bool {
         if let &Result::Incomplete(_) = self {
-             return true;
+            return true;
         }
         return false;
     }
-    
-    /// Returns true if the Result is Fail. 
+
+    /// Returns true if the Result is Fail.
     pub fn is_fail(&self) -> bool {
         if let &Result::Fail(_) = self {
-             return true;
+            return true;
         }
         return false;
     }
-    
-    /// Returns true if the Result is Abort. 
+
+    /// Returns true if the Result is Abort.
     pub fn is_abort(&self) -> bool {
         if let &Result::Abort(_) = self {
-             return true;
+            return true;
         }
         return false;
     }
