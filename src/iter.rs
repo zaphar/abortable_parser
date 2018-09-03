@@ -2,7 +2,7 @@
 use std::iter::Iterator;
 use std::fmt::Debug;
 
-use super::InputIter;
+use super::{Offsetable, InputIter};
 
 /// Implements `InputIter` for any slice of T.
 #[derive(Debug)]
@@ -35,7 +35,7 @@ impl<'a, T: Debug + 'a> Iterator for SliceIter<'a, T> {
     }
 }
 
-impl<'a, T: Debug + 'a> InputIter for SliceIter<'a, T> {
+impl<'a, T: Debug + 'a> Offsetable for SliceIter<'a, T> {
     fn get_offset(&self) -> usize {
         self.offset
     }
@@ -49,3 +49,5 @@ impl<'a, T: Debug + 'a> Clone for SliceIter<'a, T> {
         }
     }
 }
+
+impl<'a, T: Debug + 'a> InputIter for SliceIter<'a, T> {}

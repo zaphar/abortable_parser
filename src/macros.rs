@@ -25,6 +25,23 @@ macro_rules! must {
     };
 }
 
+#[macro_export]
+macro_rules! wrap_err {
+    ($i:expr, $f:ident!( $( $args:tt )* ), $e:expr) => {{
+        let _i = $i.clone();
+        match $f!($i, $($args)*) {
+            $crate::Result::Complete(i, o) => $crate::Result::Complete(i, o),
+            $crate::Result::Incomplete(offset) => $crate::Result::Incomplete(offset),
+            $crate::Result::Fail(e) => $crate::Result::Fail($crate::Error::caused_by($e, &_i, e)),
+            $crate::Result::Abort(e) => $crate::Result::Abort($crate::Error::caused_by($e, &_i, e)),
+        }
+    }};
+    
+    ($i:expr, $f:ident, $e:expr) => {
+        wrap_err!($i, run!($f), $e)
+    };
+}
+
 /// Turns Aborts into fails allowing you to trap and then convert an Abort into a normal Fail.
 #[macro_export]
 macro_rules! trap {
@@ -46,14 +63,15 @@ macro_rules! trap {
 /// to construct the errors for the Incomplete case.
 #[macro_export]
 macro_rules! must_complete {
-    ($i:expr, $efn:expr, $f:ident!( $( $args:tt )* ) ) => {
+    ($i:expr, $e:expr, $f:ident!( $( $args:tt )* ) ) => {{
+        let _i = $i.clone();
         match $f!($i, $($args)*) {
             $crate::Result::Complete(i, o) => $crate::Result::Complete(i, o),
-            $crate::Result::Incomplete(offset) => $crate::Result::Abort($efn(offset)),
+            $crate::Result::Incomplete(ref offset) => $crate::Result::Abort($crate::Error::new($e, offset)),
             $crate::Result::Fail(e) => $crate::Result::Abort(e),
             $crate::Result::Abort(e) => $crate::Result::Abort(e),
         }
-    };
+    }};
     
     ($i:expr, $efn:expr, $f:ident) => {
         must_complete!($i, $efn, run!($f))
@@ -107,7 +125,6 @@ macro_rules! do_each {
         do_each!($i, _ => run!($f), $( $rest )* )
     };
 
-    // FIXME(jwall): Make this internal only. 
     // Our Terminal condition
     ($i:expr, ( $($rest:tt)* ) ) => {
         Result::Complete($i, ($($rest)*))

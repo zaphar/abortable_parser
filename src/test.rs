@@ -1,5 +1,5 @@
 use super::iter::SliceIter;
-use super::{Result, InputIter};
+use super::{Result, Offsetable};
 
 #[test]
 fn test_slice_iter() {
@@ -31,8 +31,8 @@ fn test_slice_iter() {
     assert_eq!('o' as u8, out[2]);
 }
 
-fn will_fail(_: SliceIter<u8>) -> Result<SliceIter<u8>, String, String>  {
-    Result::Fail("AAAAHHH!!!".to_string())
+fn will_fail(i: SliceIter<u8>) -> Result<SliceIter<u8>, String, String>  {
+    Result::Fail(super::Error::new("AAAAHHH!!!".to_string(), &i))
 }
 
 fn parse_byte(mut i: SliceIter<u8>) -> Result<SliceIter<u8>, u8, String> {
@@ -63,6 +63,30 @@ fn parse_three(i: SliceIter<u8>) -> Result<SliceIter<u8>, String, String> {
         Result::Incomplete(_i.get_offset())
     } else {
         Result::Complete(_i, out)
+    }
+}
+
+#[test]
+fn test_wrap_err_fail() {
+    let input_str = "foo";
+    let iter = SliceIter::new(input_str.as_bytes());
+    let result = wrap_err!(iter, will_fail, "haha!".to_string());
+    assert!(result.is_fail());
+    if let Result::Fail(e) = result {
+        assert!(e.get_cause().is_some());
+        assert_eq!("AAAAHHH!!!", e.get_cause().unwrap().get_err());
+    }
+}
+
+#[test]
+fn test_wrap_err_abort() {
+    let input_str = "foo";
+    let iter = SliceIter::new(input_str.as_bytes());
+    let result = wrap_err!(iter, must!(will_fail), "haha!".to_string());
+    assert!(result.is_abort());
+    if let Result::Abort(e) = result {
+        assert!(e.get_cause().is_some());
+        assert_eq!("AAAAHHH!!!", e.get_cause().unwrap().get_err());
     }
 }
 
@@ -119,9 +143,9 @@ fn test_must_complete() {
     let input_str = "foo";
     let iter = SliceIter::new(input_str.as_bytes());
     let iter_fail = iter.clone();
-    let mut result = must_complete!(iter, |_| "AHHH".to_string(), will_not_complete);
+    let mut result = must_complete!(iter, "AHHH".to_string(), will_not_complete);
     assert!(result.is_abort());
-    result = must_complete!(iter_fail, |_| "AHHH".to_string(), will_fail);
+    result = must_complete!(iter_fail, "AHHH".to_string(), will_fail);
     assert!(result.is_abort());
 }
 
