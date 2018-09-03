@@ -1,5 +1,5 @@
 //! A parser combinator library with a focus on fully abortable parsing and error handling.
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 use std::iter::Iterator;
 
 /// A trait for types that can have an offset as a count of processed items.
@@ -20,13 +20,13 @@ pub trait InputIter: Iterator + Clone + Offsetable {}
 /// Stores a wrapped err that must implement Display as well as an offset and
 /// an optional cause.
 #[derive(Debug)]
-pub struct Error<E: Display> {
+pub struct Error<E: Display + Debug> {
     err: E,
     offset: usize,
     cause: Option<Box<Error<E>>>,
 }
 
-impl<E: Display> Error<E> {
+impl<E: Display + Debug> Error<E> {
     /// Constructs a new Error with an offset and no cause.
     pub fn new<S: Offsetable>(err: E, offset: &S) -> Self {
         Error {
@@ -64,7 +64,7 @@ impl<E: Display> Error<E> {
     }
 }
 
-impl<E: Display> Display for Error<E> {
+impl<E: Display + Debug> Display for Error<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
         try!(write!(f, "{}", self.err));
         match self.cause {
@@ -76,7 +76,7 @@ impl<E: Display> Display for Error<E> {
 
 /// The result of a parsing attempt.
 #[derive(Debug)]
-pub enum Result<I: InputIter, O, E: Display> {
+pub enum Result<I: InputIter, O, E: Display + Debug> {
     /// Complete represents a successful match.
     Complete(I, O),
     /// Incomplete indicates input ended before a match could be completed.
@@ -88,7 +88,7 @@ pub enum Result<I: InputIter, O, E: Display> {
     Abort(Error<E>),
 }
 
-impl<I: InputIter, O, E: Display> Result<I, O, E> {
+impl<I: InputIter, O, E: Display + Debug> Result<I, O, E> {
     /// Returns true if the Result is Complete.
     pub fn is_complete(&self) -> bool {
         if let &Result::Complete(_, _) = self {
