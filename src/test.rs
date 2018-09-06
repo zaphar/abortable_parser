@@ -67,6 +67,26 @@ fn parse_three(i: SliceIter<u8>) -> Result<SliceIter<u8>, String, String> {
 }
 
 #[test]
+fn test_text_token() {
+    let input_str = "foo bar";
+    let iter = SliceIter::new(input_str.as_bytes());
+    let result = text_token!(&iter, "foo");
+    assert!(result.is_complete());
+    if let Result::Complete(i, o) = result {
+        assert_eq!(i.get_offset(), 3);
+        assert_eq!(o, "foo");
+    }
+}
+
+#[test]
+fn test_text_token_fails() {
+    let input_str = "foo bar";
+    let iter = SliceIter::new(input_str.as_bytes());
+    let result = text_token!(&iter, "bar");
+    assert!(result.is_fail());
+}
+
+#[test]
 fn test_wrap_err_fail() {
     let input_str = "foo";
     let iter = SliceIter::new(input_str.as_bytes());
