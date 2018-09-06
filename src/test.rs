@@ -1,5 +1,5 @@
-use super::iter::SliceIter;
 use super::{Offsetable, Result};
+use iter::SliceIter;
 
 #[test]
 fn test_slice_iter() {
@@ -70,7 +70,7 @@ fn parse_three(i: SliceIter<u8>) -> Result<SliceIter<u8>, String, String> {
 fn test_text_token() {
     let input_str = "foo bar";
     let iter = SliceIter::new(input_str.as_bytes());
-    let result = text_token!(&iter, "foo");
+    let result = text_token!(iter, "foo");
     assert!(result.is_complete());
     if let Result::Complete(i, o) = result {
         assert_eq!(i.get_offset(), 3);
@@ -82,7 +82,7 @@ fn test_text_token() {
 fn test_text_token_fails() {
     let input_str = "foo bar";
     let iter = SliceIter::new(input_str.as_bytes());
-    let result = text_token!(&iter, "bar");
+    let result = text_token!(iter, "bar");
     assert!(result.is_fail());
 }
 

@@ -1,6 +1,7 @@
 //! Contains the helper macros for abortable-parser.
 
 /// Convenience macro for looking for a specific text token in a byte input stream.
+#[macro_export]
 macro_rules! text_token {
     ($i:expr, $e:expr) => {{
         use $crate::Error;
@@ -19,18 +20,21 @@ macro_rules! text_token {
         if count == $e.len() {
             Result::Complete(_i.clone(), $e)
         } else {
-            Result::Fail(Error::new(format!("Expected {} but didn't get it.", $e), $i))
+            Result::Fail(Error::new(format!("Expected {} but didn't get it.", $e), &$i))
         }
     }};
 }
 
 // FIXME(jwall): We need until!, not! and peek!.
-
 /// Converts a function indentifier into a macro call. Useful when writing your own macro combinator.
 #[macro_export]
 macro_rules! run {
     ($i:expr, $f:ident) => {
         $f($i)
+    };
+    
+    ($i:expr, $f:ident( $( $args:tt )* ) ) => {
+        $f($i, $($args)*)
     };
 }
 
@@ -44,6 +48,10 @@ macro_rules! must {
             $crate::Result::Fail(e) => $crate::Result::Abort(e),
             $crate::Result::Abort(e) => $crate::Result::Abort(e),
         }
+    };
+    
+    ($i:expr, $f:ident( $( $args:tt )* ) ) => {
+        must!($i, run!($f($($args)*)))
     };
     
     ($i:expr, $f:ident) => {
@@ -65,6 +73,10 @@ macro_rules! wrap_err {
         }
     }};
     
+    ($i:expr, $f:ident( $( $args:tt )* ), $e:expr ) => {
+        wrap_err!($i, run!($f($($args)*)), $e:expr)
+    };
+    
     ($i:expr, $f:ident, $e:expr) => {
         wrap_err!($i, run!($f), $e)
     };
@@ -80,6 +92,10 @@ macro_rules! trap {
             $crate::Result::Fail(e) => $crate::Result::Fail(e),
             $crate::Result::Abort(e) => $crate::Result::Fail(e),
         }
+    };
+    
+    ($i:expr, $f:ident( $( $args:tt )* ) ) => {
+        trap!($i, run!($f($($args)*)))
     };
     
     ($i:expr, $f:ident) => {
@@ -100,6 +116,10 @@ macro_rules! must_complete {
             $crate::Result::Abort(e) => $crate::Result::Abort(e),
         }
     }};
+    
+    ($i:expr, $efn:expr, $f:ident( $( $args:tt )* ) ) => {
+        must_complete!($i, $efn, run!($f($($args)*)))
+    };
     
     ($i:expr, $efn:expr, $f:ident) => {
         must_complete!($i, $efn, run!($f))
@@ -151,6 +171,16 @@ macro_rules! do_each {
     ($i:expr, _ => $f:ident, $($rest:tt)* ) => {
         // If any single one of these matchers fails then all of them are failures.
         do_each!($i, _ => run!($f), $( $rest )* )
+    };
+
+    ($i:expr, $val:ident => $f:ident( $(args:tt)* ), $($rest:tt)* ) => {
+        // If any single one of these matchers fails then all of them are failures.
+        do_each!($i, $val => run!($f($($args)*)), $( $rest )* )
+    };
+
+    ($i:expr, _ => $f:ident( $(args:tt)* ), $($rest:tt)* ) => {
+        // If any single one of these matchers fails then all of them are failures.
+        do_each!($i, _ => run!($f($($args)*)), $( $rest )* )
     };
 
     // Our Terminal condition
