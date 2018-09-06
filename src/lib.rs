@@ -125,7 +125,9 @@ impl<I: InputIter, O, E: Display + Debug> Result<I, O, E> {
 pub use iter::SliceIter;
 
 #[macro_use]
-pub mod macros;
+pub mod combinators;
+#[macro_use]
+pub mod matchers;
 pub mod iter;
 
 #[cfg(test)]

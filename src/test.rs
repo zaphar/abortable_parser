@@ -1,4 +1,4 @@
-use std::fmt::{Display, Debug};
+use std::fmt::{Debug, Display};
 
 use super::{InputIter, Offsetable, Result};
 use iter::SliceIter;
@@ -33,13 +33,18 @@ fn test_slice_iter() {
     assert_eq!('o' as u8, out[2]);
 }
 
-fn will_fail<I, C>(i: I) -> Result<I, String, String> 
-where I: InputIter<Item=C>, C: Debug + Display {
+fn will_fail<I, C>(i: I) -> Result<I, String, String>
+where
+    I: InputIter<Item = C>,
+    C: Debug + Display,
+{
     Result::Fail(super::Error::new("AAAAHHH!!!".to_string(), &i))
 }
 
-fn parse_byte<'a, I>(mut i: I) -> Result<I, u8, String> 
-where I: InputIter<Item=&'a u8> {
+fn parse_byte<'a, I>(mut i: I) -> Result<I, u8, String>
+where
+    I: InputIter<Item = &'a u8>,
+{
     match i.next() {
         Some(b) => Result::Complete(i, *b),
         None => Result::Incomplete(i.get_offset()),
@@ -47,12 +52,16 @@ where I: InputIter<Item=&'a u8> {
 }
 
 fn will_not_complete<'a, I>(_: I) -> Result<I, String, String>
-where I: InputIter<Item=&'a u8> {
+where
+    I: InputIter<Item = &'a u8>,
+{
     Result::Incomplete(0)
 }
 
-fn parse_three<'a, I>(i: I) -> Result<I, String, String> 
-where I: InputIter<Item=&'a u8> {
+fn parse_three<'a, I>(i: I) -> Result<I, String, String>
+where
+    I: InputIter<Item = &'a u8>,
+{
     let mut _i = i.clone();
     let mut out = String::new();
     loop {
