@@ -1,4 +1,6 @@
-use super::{Offsetable, Result};
+use std::fmt::{Display, Debug};
+
+use super::{InputIter, Offsetable, Result};
 use iter::SliceIter;
 
 #[test]
@@ -31,22 +33,26 @@ fn test_slice_iter() {
     assert_eq!('o' as u8, out[2]);
 }
 
-fn will_fail(i: SliceIter<u8>) -> Result<SliceIter<u8>, String, String> {
+fn will_fail<I, C>(i: I) -> Result<I, String, String> 
+where I: InputIter<Item=C>, C: Debug + Display {
     Result::Fail(super::Error::new("AAAAHHH!!!".to_string(), &i))
 }
 
-fn parse_byte(mut i: SliceIter<u8>) -> Result<SliceIter<u8>, u8, String> {
+fn parse_byte<'a, I>(mut i: I) -> Result<I, u8, String> 
+where I: InputIter<Item=&'a u8> {
     match i.next() {
         Some(b) => Result::Complete(i, *b),
         None => Result::Incomplete(i.get_offset()),
     }
 }
 
-fn will_not_complete(_: SliceIter<u8>) -> Result<SliceIter<u8>, String, String> {
+fn will_not_complete<'a, I>(_: I) -> Result<I, String, String>
+where I: InputIter<Item=&'a u8> {
     Result::Incomplete(0)
 }
 
-fn parse_three(i: SliceIter<u8>) -> Result<SliceIter<u8>, String, String> {
+fn parse_three<'a, I>(i: I) -> Result<I, String, String> 
+where I: InputIter<Item=&'a u8> {
     let mut _i = i.clone();
     let mut out = String::new();
     loop {
@@ -64,6 +70,40 @@ fn parse_three(i: SliceIter<u8>) -> Result<SliceIter<u8>, String, String> {
     } else {
         Result::Complete(_i, out)
     }
+}
+
+#[test]
+fn test_peek() {
+    let input_str = "foo bar";
+    let iter = SliceIter::new(input_str.as_bytes());
+    let pristine = iter.clone();
+    let result = peek!(iter, text_token!("foo"));
+    assert!(result.is_complete());
+    if let Result::Complete(i, o) = result {
+        assert_eq!(pristine.get_offset(), i.get_offset());
+        assert_eq!("foo", o);
+    }
+}
+
+#[test]
+fn test_not_success() {
+    let input_str = "foo bar";
+    let iter = SliceIter::new(input_str.as_bytes());
+    let pristine = iter.clone();
+    let result = not!(iter, will_fail);
+    assert!(result.is_complete());
+    if let Result::Complete(i, o) = result {
+        assert_eq!(pristine.get_offset(), i.get_offset());
+        assert_eq!((), o);
+    }
+}
+
+#[test]
+fn test_not_fail() {
+    let input_str = "foo bar";
+    let iter = SliceIter::new(input_str.as_bytes());
+    let result = not!(iter, text_token!("foo"));
+    assert!(result.is_fail());
 }
 
 #[test]

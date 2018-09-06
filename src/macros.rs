@@ -25,16 +25,61 @@ macro_rules! text_token {
     }};
 }
 
-// FIXME(jwall): We need until!, not! and peek!.
+
+// FIXME(jwall): We need peek!.
+
+/// Turns a matcher into it's inverse, only succeeding if the the matcher returns a Fail.
+/// Does not consume it's input and only returns ().
+#[macro_export]
+macro_rules! not {
+    ($i:expr, $f:ident!( $( $args:tt )* ) ) => {{
+        use $crate::{Result, Error};
+        let _i = $i.clone();
+        match trap!(_i, $f!($($args)*)) {
+            Result::Complete(i, _) => Result::Fail(Error::new("Matched on input when we shouldn't have.".to_string(), &i)),
+            Result::Abort(e) => Result::Abort(e),
+            Result::Incomplete(offset) => Result::Incomplete(offset),
+            Result::Fail(_) => Result::Complete($i, ()),
+        }
+    }};
+
+    ($i:expr, $f:ident( $( $args:tt )* ) ) => {
+        not!($i, run!($f($($args)*)))
+    };
+    
+    ($i:expr, $f:ident) => {
+        not!($i, run!($f))
+    };
+}
+
+/// Matches the provided
+#[macro_export]
+macro_rules! peek {
+    ($i:expr, $f:ident!( $( $args:tt )* ) ) => {{
+        use $crate::Result;
+        let _i = $i.clone();
+        match $f!(_i, $($args)*) {
+            Result::Complete(_, o) => Result::Complete($i, o),
+            Result::Incomplete(offset) => Result::Incomplete(offset),
+            Result::Abort(e) => Result::Abort(e),
+            Result::Fail(e) => Result::Fail(e),
+        }
+    }};
+
+    ($i:expr, $f:ident( $( $args:tt )* ) ) => {
+        peek!($i, run!($f($($args)*)))
+    };
+    
+    ($i:expr, $f:ident) => {
+        peek!($i, run!($f))
+    };
+}
+
 /// Converts a function indentifier into a macro call. Useful when writing your own macro combinator.
 #[macro_export]
 macro_rules! run {
     ($i:expr, $f:ident) => {
         $f($i)
-    };
-    
-    ($i:expr, $f:ident( $( $args:tt )* ) ) => {
-        $f($i, $($args)*)
     };
 }
 
@@ -48,10 +93,6 @@ macro_rules! must {
             $crate::Result::Fail(e) => $crate::Result::Abort(e),
             $crate::Result::Abort(e) => $crate::Result::Abort(e),
         }
-    };
-    
-    ($i:expr, $f:ident( $( $args:tt )* ) ) => {
-        must!($i, run!($f($($args)*)))
     };
     
     ($i:expr, $f:ident) => {
@@ -94,10 +135,6 @@ macro_rules! trap {
         }
     };
     
-    ($i:expr, $f:ident( $( $args:tt )* ) ) => {
-        trap!($i, run!($f($($args)*)))
-    };
-    
     ($i:expr, $f:ident) => {
         trap!($i, run!($f))
     };
@@ -116,10 +153,6 @@ macro_rules! must_complete {
             $crate::Result::Abort(e) => $crate::Result::Abort(e),
         }
     }};
-    
-    ($i:expr, $efn:expr, $f:ident( $( $args:tt )* ) ) => {
-        must_complete!($i, $efn, run!($f($($args)*)))
-    };
     
     ($i:expr, $efn:expr, $f:ident) => {
         must_complete!($i, $efn, run!($f))
@@ -171,16 +204,6 @@ macro_rules! do_each {
     ($i:expr, _ => $f:ident, $($rest:tt)* ) => {
         // If any single one of these matchers fails then all of them are failures.
         do_each!($i, _ => run!($f), $( $rest )* )
-    };
-
-    ($i:expr, $val:ident => $f:ident( $(args:tt)* ), $($rest:tt)* ) => {
-        // If any single one of these matchers fails then all of them are failures.
-        do_each!($i, $val => run!($f($($args)*)), $( $rest )* )
-    };
-
-    ($i:expr, _ => $f:ident( $(args:tt)* ), $($rest:tt)* ) => {
-        // If any single one of these matchers fails then all of them are failures.
-        do_each!($i, _ => run!($f($($args)*)), $( $rest )* )
     };
 
     // Our Terminal condition
