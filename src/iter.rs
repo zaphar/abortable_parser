@@ -21,6 +21,10 @@ impl<'a, T: Debug + 'a> SliceIter<'a, T> {
     }
 }
 
+fn str_iter<'a>(input: &'a str) -> SliceIter<'a, u8> {
+        SliceIter::new(input.as_bytes())
+}
+
 impl<'a, T: Debug + 'a> Iterator for SliceIter<'a, T> {
     type Item = &'a T;
 
@@ -51,3 +55,22 @@ impl<'a, T: Debug + 'a> Clone for SliceIter<'a, T> {
 }
 
 impl<'a, T: Debug + 'a> InputIter for SliceIter<'a, T> {}
+
+
+impl<'a> From<&'a str> for SliceIter<'a, u8> {
+    fn from(source: &'a str) -> Self {
+        str_iter(source)
+    }
+}
+
+impl<'a, T: Debug> From<&'a [T]> for SliceIter<'a, T> {
+    fn from(source: &'a [T]) -> Self {
+        SliceIter::new(source)
+    }
+}
+
+impl <'a, T: Debug> From<&'a Vec<T>> for SliceIter<'a, T> {
+    fn from(source: &'a Vec<T>) -> Self {
+        SliceIter::new(source.as_slice())
+    }
+}
