@@ -21,7 +21,7 @@ pub trait InputIter: Iterator + Clone + Offsetable {}
 /// an optional cause.
 #[derive(Debug)]
 pub struct Error<E: Display + Debug> {
-    err: E,
+    msg: E,
     offset: usize,
     cause: Option<Box<Error<E>>>,
 }
@@ -30,24 +30,24 @@ impl<E: Display + Debug> Error<E> {
     /// Constructs a new Error with an offset and no cause.
     pub fn new<S: Offsetable>(err: E, offset: &S) -> Self {
         Error {
-            err: err,
+            msg: err,
             offset: offset.get_offset(),
             cause: None,
         }
     }
 
     /// Constructs a new Error with an offset and a cause.
-    pub fn caused_by<S: Offsetable>(err: E, offset: &S, cause: Self) -> Self {
+    pub fn caused_by<S: Offsetable>(msg: E, offset: &S, cause: Self) -> Self {
         Error {
-            err: err,
+            msg: msg,
             offset: offset.get_offset(),
             cause: Some(Box::new(cause)),
         }
     }
 
     /// Returns the contained err.
-    pub fn get_err<'a>(&'a self) -> &'a E {
-        &self.err
+    pub fn get_msg<'a>(&'a self) -> &'a E {
+        &self.msg
     }
 
     /// Returns `Some(cause)` if there is one, None otherwise.
@@ -66,7 +66,7 @@ impl<E: Display + Debug> Error<E> {
 
 impl<E: Display + Debug> Display for Error<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
-        try!(write!(f, "{}", self.err));
+        try!(write!(f, "{}", self.msg));
         match self.cause {
             Some(ref c) => write!(f, "\n\tCaused By:{}", c),
             None => Ok(()),
