@@ -2,7 +2,7 @@ use std::fmt::{Debug, Display};
 
 use super::{InputIter, Offsetable, Result};
 use iter::SliceIter;
-use matchers::must_string;
+use combinators::must_string;
 
 #[test]
 fn test_slice_iter() {
@@ -34,7 +34,7 @@ fn test_slice_iter() {
     assert_eq!('o' as u8, out[2]);
 }
 
-fn will_fail<I, C>(i: I) -> Result<I, String, String>
+fn will_fail<I, C>(i: I) -> Result<I, String>
 where
     I: InputIter<Item = C>,
     C: Debug + Display,
@@ -42,7 +42,7 @@ where
     Result::Fail(super::Error::new("AAAAHHH!!!".to_string(), &i))
 }
 
-fn parse_byte<'a, I>(mut i: I) -> Result<I, u8, String>
+fn parse_byte<'a, I>(mut i: I) -> Result<I, u8>
 where
     I: InputIter<Item = &'a u8>,
 {
@@ -52,14 +52,14 @@ where
     }
 }
 
-fn will_not_complete<'a, I>(_: I) -> Result<I, String, String>
+fn will_not_complete<'a, I>(_: I) -> Result<I, String>
 where
     I: InputIter<Item = &'a u8>,
 {
     Result::Incomplete(0)
 }
 
-fn parse_three<'a, I>(i: I) -> Result<I, String, String>
+fn parse_three<'a, I>(i: I) -> Result<I, String>
 where
     I: InputIter<Item = &'a u8>,
 {

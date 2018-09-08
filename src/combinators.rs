@@ -1,5 +1,26 @@
 //! Contains combinators that can assemble other matchers or combinators into more complex grammars.
 
+use super::{InputIter, Error, Result};
+
+/// Turns a `Result` to it's inverse.
+/// 
+/// `Result::Fail` becomes `Result::Complete` and `Result::Complete` becomes `Result::Fail`.
+/// You must pass in an iterator at the appropriate spot for the next combinator
+/// to start at.
+/// 
+/// The `not!` macro provides syntactic sugar for using this combinator properly.
+pub fn not<I, O>(i: I, result: Result<I, O>) -> Result<I, ()> 
+where
+    I: InputIter,
+{
+        match result {
+            Result::Complete(i, _) => Result::Fail(Error::new("Matched on input when we shouldn't have.".to_string(), &i)),
+            Result::Abort(e) => Result::Abort(e),
+            Result::Incomplete(offset) => Result::Incomplete(offset),
+            Result::Fail(_) => Result::Complete(i, ()),
+        }
+}
+
 /// Turns a matcher into it's inverse, only succeeding if the the matcher returns a Fail.
 /// Does not consume it's input and only returns ().
 /// 
@@ -21,14 +42,8 @@
 #[macro_export]
 macro_rules! not {
     ($i:expr, $f:ident!( $( $args:tt )* ) ) => {{
-        use $crate::{Result, Error};
         let _i = $i.clone();
-        match trap!(_i, $f!($($args)*)) {
-            Result::Complete(i, _) => Result::Fail(Error::new("Matched on input when we shouldn't have.".to_string(), &i)),
-            Result::Abort(e) => Result::Abort(e),
-            Result::Incomplete(offset) => Result::Incomplete(offset),
-            Result::Fail(_) => Result::Complete($i, ()),
-        }
+        $crate::combinators::not(_i, trap!($i.clone(), $f!($($args)*)))
     }};
 
     ($i:expr, $f:ident( $( $args:tt )* ) ) => {
@@ -87,8 +102,27 @@ macro_rules! run {
     };
 }
 
-/// Turns Fails into Aborts. Allows you to turn any parse failure into a hard abort of
-/// the parser.
+/// Maps a `Result::Fail` to a `Result::Abort`.
+/// 
+/// It leaves the rest of the Result variants untouched.
+/// 
+/// The `must!` macro provided syntactice sugar for using this combinator.
+pub fn must<I, O>(result: Result<I, O>) -> Result<I, O>
+where
+    I: InputIter
+{
+    match result {
+        Result::Complete(i, o) => Result::Complete(i, o),
+        Result::Incomplete(offset) => Result::Incomplete(offset),
+        Result::Fail(e) => Result::Abort(e),
+        Result::Abort(e) => Result::Abort(e),
+    }
+
+}
+
+/// Turns `Result::Fail` into `Result::Abort`.
+/// 
+/// Allows you to turn any parse failure into a hard abort of the parser.
 /// 
 /// ```
 /// # #[macro_use] extern crate abortable_parser;
@@ -109,12 +143,7 @@ macro_rules! run {
 #[macro_export]
 macro_rules! must {
     ($i:expr, $f:ident!( $( $args:tt )* ) ) => {
-        match $f!($i, $($args)*) {
-            $crate::Result::Complete(i, o) => $crate::Result::Complete(i, o),
-            $crate::Result::Incomplete(offset) => $crate::Result::Incomplete(offset),
-            $crate::Result::Fail(e) => $crate::Result::Abort(e),
-            $crate::Result::Abort(e) => $crate::Result::Abort(e),
-        }
+        $crate::combinators::must($f!($i, $($args)*))
     };
     
     ($i:expr, $f:ident) => {
@@ -145,8 +174,25 @@ macro_rules! wrap_err {
     };
 }
 
-/// Turns Aborts into fails allowing you to trap and then convert an Abort into a
-/// normal Fail.
+/// Traps a `Result::Abort` and converts it into a `Result::Fail`.
+/// 
+/// This is the semantic inverse of `must`.
+///
+/// The `trap!` macro provides syntactic sugar for using this combinator.
+pub fn trap<I, O>(result: Result<I, O>) -> Result<I, O>
+where
+    I: InputIter
+{
+        match result {
+            Result::Complete(i, o) => Result::Complete(i, o),
+            Result::Incomplete(offset) => Result::Incomplete(offset),
+            Result::Fail(e) => Result::Fail(e),
+            Result::Abort(e) => Result::Fail(e),
+        }
+}
+
+/// Turns `Result::Abort` into `Result::Fail` allowing you to trap and then convert any `Result::Abort`
+/// into a normal Fail.
 /// 
 /// ```
 /// # #[macro_use] extern crate abortable_parser;
@@ -162,12 +208,7 @@ macro_rules! wrap_err {
 #[macro_export]
 macro_rules! trap {
     ($i:expr, $f:ident!( $( $args:tt )* ) ) => {
-        match $f!($i, $($args)*) {
-            $crate::Result::Complete(i, o) => $crate::Result::Complete(i, o),
-            $crate::Result::Incomplete(offset) => $crate::Result::Incomplete(offset),
-            $crate::Result::Fail(e) => $crate::Result::Fail(e),
-            $crate::Result::Abort(e) => $crate::Result::Fail(e),
-        }
+        $crate::combinators::trap($f!($i, $($args)*))
     };
     
     ($i:expr, $f:ident) => {
@@ -175,8 +216,27 @@ macro_rules! trap {
     };
 }
 
-/// Turns Fails and Incompletes into Aborts. You must specify the error message
-/// to use in case the matcher is Incomplete.
+/// Turns `Result::Fail` or `Result::Incomplete` into `Result::Abort`.
+/// 
+/// You must specify the error message to use in case the matcher is incomplete.
+/// 
+/// The must_complete! macro provides syntactic sugar for using this combinator.
+pub fn must_complete<I, O, M>(result: Result<I, O>, msg: M) -> Result<I, O>
+where
+    I: InputIter,
+    M: Into<String>,
+{
+    match result {
+            Result::Complete(i, o) => Result::Complete(i, o),
+            Result::Incomplete(ref offset) => Result::Abort(Error::new(msg, offset)),
+            Result::Fail(e) => Result::Abort(e),
+            Result::Abort(e) => Result::Abort(e),
+        }
+}
+
+/// Turns `Result::Fail` and `Result::Incomplete` into `Result::Abort`.
+/// 
+/// You must specify the error message to use in case the matcher is incomplete.
 /// 
 /// ```
 /// # #[macro_use] extern crate abortable_parser;
@@ -191,13 +251,7 @@ macro_rules! trap {
 #[macro_export]
 macro_rules! must_complete {
     ($i:expr, $e:expr, $f:ident!( $( $args:tt )* ) ) => {{
-        let _i = $i.clone();
-        match $f!($i, $($args)*) {
-            $crate::Result::Complete(i, o) => $crate::Result::Complete(i, o),
-            $crate::Result::Incomplete(ref offset) => $crate::Result::Abort($crate::Error::new($e, offset)),
-            $crate::Result::Fail(e) => $crate::Result::Abort(e),
-            $crate::Result::Abort(e) => $crate::Result::Abort(e),
-        }
+        $crate::combinators::must_complete($f!($i, $($args)*), $e)
     }};
     
     ($i:expr, $efn:expr, $f:ident) => {
@@ -407,8 +461,37 @@ macro_rules! either {
     }
 }
 
+/// Maps a `Result` to be optional.
+/// 
+/// `Result::Fail` maps to None and `Result::Complete` maps to Some. The rest of the
+/// `Result` variants are left untouched. You must pass in the iterator that the
+/// next matcher should use in the event of a fail.
+/// 
+/// The `optional!` macro provides some syntactice sugar for using this combinator
+/// properly.
+pub fn optional<I, O>(iter: I, result: Result<I, O>) -> Result<I, Option<O>>
+where
+    I: InputIter,
+{
+    match result {
+            Result::Complete(i, o) => {
+                Result::Complete(i, Some(o))
+            }
+            // Incomplete could still work possibly parse.
+            Result::Incomplete(i) => {
+                Result::Incomplete(i)
+            }
+            // Fail just means it didn't match.
+            Result::Fail(_) => {
+                Result::Complete(iter, None)
+            },
+            // Aborts are hard failures that the parser can't recover from.
+            Result::Abort(e) => Result::Abort(e),
+        }
+}
+
 /// Treats a sub parser as optional. It returns Some(output) for a successful match
-/// and None for Fails.
+/// and None for failures.
 /// 
 /// ```
 /// # #[macro_use] extern crate abortable_parser;
@@ -437,21 +520,7 @@ macro_rules! optional {
 
     (__impl $i:expr, $f:ident!( $( $args:tt )* )) => {{
         let _i = $i.clone();
-        match $f!($i, $($args)*) {
-            $crate::Result::Complete(i, o) => {
-                Result::Complete(i, Some(o))
-            }
-            // Incomplete could still work possibly parse.
-            $crate::Result::Incomplete(i) => {
-                Result::Incomplete(i)
-            }
-            // Fail just means it didn't match.
-            $crate::Result::Fail(_) => {
-                Result::Complete(_i, None)
-            },
-            // Aborts are hard failures that the parser can't recover from.
-            $crate::Result::Abort(e) => Result::Abort(e),
-        }
+       $crate::combinators::optional(_i, $f!($i, $($args)*))
     }};
 }
 
@@ -513,4 +582,116 @@ macro_rules! repeat {
     ($i:expr, $f:ident) => {
         repeat!($i, run!($f))
     };
+}
+
+/// Convenience macro for looking for a specific text token in a byte input stream.
+/// 
+/// ```
+/// # #[macro_use] extern crate abortable_parser;
+/// use abortable_parser::iter;
+/// # use abortable_parser::{Result, Offsetable};
+/// use std::convert::From;
+/// # fn main() {
+/// let iter: iter::SliceIter<u8> = "foo bar".into();
+/// let tok = text_token!(iter, "foo");
+/// # assert!(tok.is_complete());
+/// if let Result::Complete(i, o) = tok {
+///     assert_eq!(i.get_offset(), 3);
+///     assert_eq!(o, "foo");
+/// }
+/// # }
+/// ```
+#[macro_export]
+macro_rules! text_token {
+    ($i:expr, $e:expr) => {{
+        use $crate::Error;
+        use $crate::Result;
+        let mut _i = $i.clone();
+        let mut count = 0;
+        for expected in $e.bytes() {
+            let item = match _i.next() {
+                Some(item) => item,
+                None => break,
+            };
+            if item == &expected {
+                count += 1;
+            }
+        }
+        if count == $e.len() {
+            Result::Complete(_i.clone(), $e)
+        } else {
+            Result::Fail(Error::new(
+                format!("Expected {} but didn't get it.", $e),
+                &$i,
+            ))
+        }
+    }};
+}
+
+/// Consumes an input until it reaches the term combinator matches.
+///
+/// If the term never matches then returns incomplete.
+/// ```
+/// # #[macro_use] extern crate abortable_parser;
+/// use abortable_parser::iter;
+/// # use abortable_parser::{Result, Offsetable};
+/// use std::convert::From;
+/// # fn main() {
+/// let iter: iter::SliceIter<u8> = "foo;".into();
+/// let tok = until!(iter, text_token!(";"));
+/// # assert!(tok.is_complete());
+/// if let Result::Complete(i, o) = tok {
+///     assert_eq!(i.get_offset(), 3);
+/// }
+/// # }
+/// ```
+#[macro_export]
+macro_rules! until {
+    ($i:expr, $term:ident!( $( $args:tt )* ) ) => {{
+        use $crate::{Result, Offsetable};
+        let mut acc = Vec::new();
+        let mut _i = $i.clone();
+        let pfn = || {
+            loop {
+                match $term!(_i.clone(), $($args)*) {
+                    Result::Complete(_, _) => return Result::Complete(_i, acc),
+                    Result::Abort(e) => return Result::Abort(e),
+                    Result::Incomplete(offset) => return Result::Incomplete(offset),
+                    Result::Fail(_) => {
+                        // noop
+                    }
+                }
+                let item = match _i.next() {
+                    Some(it) => it,
+                    None => return Result::Incomplete(_i.get_offset()),
+                };
+                acc.push(item);
+            }
+        };
+        pfn()
+    }};
+
+    ($i:expr, $term:ident) => {
+        consume_until!($i, run!($term))
+    };
+}
+
+/// Maps a Result of type Vec<&u8> to a Result of type String.
+pub fn must_string<'a, I, E>(matched: Result<I, Vec<&'a u8>>, msg: E) -> Result<I, String>
+where
+    I: InputIter<Item=&'a u8>,
+    E: Into<String>,
+{
+        match matched {
+            Result::Complete(i, mut o) => {
+                let new_string = String::from_utf8(o.drain(0..).map(|b| *b).collect());
+                match new_string {
+                    Ok(s) => Result::Complete(i, s),
+                    Err(_) => Result::Abort(Error::new(msg, &i)),
+                }
+            },
+            Result::Incomplete(offset) => Result::Incomplete(offset),
+            Result::Abort(e) => Result::Abort(e),
+            Result::Fail(e) => Result::Fail(e),
+        }
 }
