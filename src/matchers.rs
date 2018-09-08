@@ -1,6 +1,25 @@
 //! Contains matchers for matching specific patterns or tokens.
+use super::{InputIter, Result, Error};
+
+use std::fmt::{Debug, Display};
 
 /// Convenience macro for looking for a specific text token in a byte input stream.
+/// 
+/// ```
+/// # #[macro_use] extern crate abortable_parser;
+/// use abortable_parser::iter;
+/// # use abortable_parser::{Result, Offsetable};
+/// use std::convert::From;
+/// # fn main() {
+/// let iter: iter::SliceIter<u8> = "foo bar".into();
+/// let tok = text_token!(iter, "foo");
+/// # assert!(tok.is_complete());
+/// if let Result::Complete(i, o) = tok {
+///     assert_eq!(i.get_offset(), 3);
+///     assert_eq!(o, "foo");
+/// }
+/// # }
+/// ```
 #[macro_export]
 macro_rules! text_token {
     ($i:expr, $e:expr) => {{
@@ -28,6 +47,24 @@ macro_rules! text_token {
     }};
 }
 
+/// Consumes an input until it reaches the term combinator matches.
+///
+/// If the term never matches then returns incomplete.
+/// ```
+/// # #[macro_use] extern crate abortable_parser;
+/// use abortable_parser::iter;
+/// # use abortable_parser::{Result, Offsetable};
+/// use std::convert::From;
+/// # fn main() {
+/// let iter: iter::SliceIter<u8> = "foo;".into();
+/// let tok = until!(iter, text_token!(";"));
+/// # assert!(tok.is_complete());
+/// if let Result::Complete(i, o) = tok {
+///     assert_eq!(i.get_offset(), 3);
+/// }
+/// # }
+/// ```
+#[macro_export]
 macro_rules! until {
     ($i:expr, $term:ident!( $( $args:tt )* ) ) => {{
         use $crate::{Result, Offsetable};
@@ -58,6 +95,7 @@ macro_rules! until {
     };
 }
 
+/// Maps a Result of type Vec<&u8> to a Result of type String.
 pub fn must_string<'a, I, E>(matched: Result<I, Vec<&'a u8>, E>, msg: E) -> Result<I, String, E>
 where
     I: InputIter<Item=&'a u8>,

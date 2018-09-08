@@ -144,7 +144,7 @@ fn test_wrap_err_fail() {
     assert!(result.is_fail());
     if let Result::Fail(e) = result {
         assert!(e.get_cause().is_some());
-        assert_eq!("AAAAHHH!!!", e.get_cause().unwrap().get_err());
+        assert_eq!("AAAAHHH!!!", e.get_cause().unwrap().get_msg());
     }
 }
 
@@ -156,7 +156,7 @@ fn test_wrap_err_abort() {
     assert!(result.is_abort());
     if let Result::Abort(e) = result {
         assert!(e.get_cause().is_some());
-        assert_eq!("AAAAHHH!!!", e.get_cause().unwrap().get_err());
+        assert_eq!("AAAAHHH!!!", e.get_cause().unwrap().get_msg());
     }
 }
 

@@ -1,7 +1,23 @@
-//! Contains combinators that can assemble other mathers or combinators into more complex grammars.
+//! Contains combinators that can assemble other matchers or combinators into more complex grammars.
 
 /// Turns a matcher into it's inverse, only succeeding if the the matcher returns a Fail.
 /// Does not consume it's input and only returns ().
+/// 
+/// ```
+/// # #[macro_use] extern crate abortable_parser;
+/// # use abortable_parser::iter;
+/// # use abortable_parser::{Result, Offsetable};
+/// # use std::convert::From;
+/// # fn main() {
+/// # let iter: iter::SliceIter<u8> = "foo".into();
+/// let tok = not!(iter, text_token!("bar"));
+/// assert!(tok.is_complete());
+/// if let Result::Complete(i, o) = tok {
+///     assert_eq!(i.get_offset(), 0);
+///     assert_eq!(o, ());
+/// }
+/// # }
+/// ```
 #[macro_export]
 macro_rules! not {
     ($i:expr, $f:ident!( $( $args:tt )* ) ) => {{
@@ -24,7 +40,23 @@ macro_rules! not {
     };
 }
 
-/// Matches the provided
+/// Checks the given matcher without consuming the input.
+/// 
+/// ```
+/// # #[macro_use] extern crate abortable_parser;
+/// # use abortable_parser::iter;
+/// # use abortable_parser::{Result, Offsetable};
+/// # use std::convert::From;
+/// # fn main() {
+/// # let iter: iter::SliceIter<u8> = "foo".into();
+/// let tok = peek!(iter, text_token!("foo"));
+/// # assert!(tok.is_complete());
+/// # if let Result::Complete(i, o) = tok {
+/// #     assert_eq!(i.get_offset(), 0);
+/// #     assert_eq!(o, "foo");
+/// # }
+/// # }
+/// ```
 #[macro_export]
 macro_rules! peek {
     ($i:expr, $f:ident!( $( $args:tt )* ) ) => {{
@@ -55,7 +87,25 @@ macro_rules! run {
     };
 }
 
-/// Turns Fails into Aborts. Allows you to turn any parse failure into a hard abort of the parser.
+/// Turns Fails into Aborts. Allows you to turn any parse failure into a hard abort of
+/// the parser.
+/// 
+/// ```
+/// # #[macro_use] extern crate abortable_parser;
+/// use abortable_parser::iter;
+/// # use abortable_parser::Result;
+/// # use std::convert::From;
+/// # fn main() {
+/// 
+/// let iter: iter::SliceIter<u8> = "foo".into();
+/// 
+/// let tok = must!(iter, text_token!("foo"));
+/// # assert!(tok.is_complete());
+/// 
+/// let fail = must!(iter, text_token!("bar"));
+/// # assert!(fail.is_abort());
+/// # }
+/// ```
 #[macro_export]
 macro_rules! must {
     ($i:expr, $f:ident!( $( $args:tt )* ) ) => {
@@ -95,7 +145,20 @@ macro_rules! wrap_err {
     };
 }
 
-/// Turns Aborts into fails allowing you to trap and then convert an Abort into a normal Fail.
+/// Turns Aborts into fails allowing you to trap and then convert an Abort into a
+/// normal Fail.
+/// 
+/// ```
+/// # #[macro_use] extern crate abortable_parser;
+/// use abortable_parser::iter;
+/// # use abortable_parser::{Result, Offsetable};
+/// # fn main() {
+/// let input_str = "foo";
+/// let iter = iter::SliceIter::new(input_str.as_bytes());
+/// let result = trap!(iter, must!(text_token!("bar")));
+/// # assert!(result.is_fail());
+/// # }
+/// ```
 #[macro_export]
 macro_rules! trap {
     ($i:expr, $f:ident!( $( $args:tt )* ) ) => {
@@ -112,8 +175,19 @@ macro_rules! trap {
     };
 }
 
-/// Turns Fails and Incompletes into Aborts. It uses an error factory
-/// to construct the errors for the Incomplete case.
+/// Turns Fails and Incompletes into Aborts. You must specify the error message
+/// to use in case the matcher is Incomplete.
+/// 
+/// ```
+/// # #[macro_use] extern crate abortable_parser;
+/// use abortable_parser::iter;
+/// # use abortable_parser::{Result, Offsetable};
+/// # fn main() {
+/// let input_str = "foo";
+/// let iter = iter::SliceIter::new(input_str.as_bytes());
+/// let mut result = must_complete!(iter, "AHHH".to_string(), text_token!("fooooo"));
+/// # assert!(result.is_abort());
+/// # }
 #[macro_export]
 macro_rules! must_complete {
     ($i:expr, $e:expr, $f:ident!( $( $args:tt )* ) ) => {{
@@ -132,6 +206,54 @@ macro_rules! must_complete {
 }
 
 /// Captures a sequence of sub parsers output.
+/// 
+/// ```
+/// # #[macro_use] extern crate abortable_parser;
+/// use abortable_parser::iter;
+/// # use abortable_parser::{Result, Offsetable};
+/// # fn main() {
+/// let input_str = "(foobar)";
+/// let iter = iter::SliceIter::new(input_str.as_bytes());
+/// let result = do_each!(iter,
+///     _ => text_token!("("),
+///     foo => text_token!("foo"),
+///     bar => text_token!("bar"),
+///     _ => text_token!(")"),
+///     (foo, bar) // This expression will be the result of the parse
+/// );
+/// # assert!(result.is_complete());
+/// if let Result::Complete(_, o) = result {
+///     assert_eq!("foo", o.0);
+///     assert_eq!("bar", o.1);
+/// } 
+/// # }
+/// ```
+///  
+/// Or alternatively rather than a tuple as the output you can return a single
+/// expression.
+/// 
+/// ```
+/// # #[macro_use] extern crate abortable_parser;
+/// # use abortable_parser::iter;
+/// # use abortable_parser::{Result, Offsetable};
+/// # fn main() {
+/// # let input_str = "(foobar)";
+/// # let iter = iter::SliceIter::new(input_str.as_bytes());
+/// let result = do_each!(iter,
+///     _ => text_token!("("),
+///     foo => text_token!("foo"),
+///     bar => text_token!("bar"),
+///     _ => text_token!(")"),
+///     (vec![foo, bar]) // Non tuple expression as a result.
+/// );
+/// # assert!(result.is_complete());
+/// if let Result::Complete(_, o) = result {
+///     assert_eq!(vec!["foo", "bar"], o);
+/// }
+/// # }
+/// ```
+/// 
+/// The output from this combinator must be indicated by parentheses.
 #[macro_export]
 macro_rules! do_each {
     ($i:expr, $val:ident => $f:ident) => {
@@ -185,6 +307,22 @@ macro_rules! do_each {
 }
 
 /// Returns the output of the first sub parser to succeed.
+/// 
+/// ```
+/// # #[macro_use] extern crate abortable_parser;
+/// use abortable_parser::iter;
+/// # use abortable_parser::{Result, Offsetable};
+/// # fn main() {
+/// let input_str = "foo";
+/// let iter = iter::SliceIter::new(input_str.as_bytes());
+/// let result = either!(iter, text_token!("bar"), text_token!("foo"));
+/// # assert!(result.is_complete());
+/// # if let Result::Complete(_, o) = result {
+/// #     assert_eq!("foo", o);
+/// # } else {
+/// #     assert!(false, "either! did not complete");
+/// # }
+/// # }
 #[macro_export]
 macro_rules! either {
     // Initialization case.
@@ -271,6 +409,22 @@ macro_rules! either {
 
 /// Treats a sub parser as optional. It returns Some(output) for a successful match
 /// and None for Fails.
+/// 
+/// ```
+/// # #[macro_use] extern crate abortable_parser;
+/// use abortable_parser::iter;
+/// # use abortable_parser::{Result, Offsetable};
+/// # fn main() {
+/// let input_str = "foo";
+/// let iter = iter::SliceIter::new(input_str.as_bytes());
+/// let result = optional!(iter, text_token!("foo"));
+/// # assert!(result.is_complete());
+/// # if let Result::Complete(_, o) = result {
+/// #     assert_eq!("foo", o.unwrap());
+/// # } else {
+/// #     assert!(false, "optional! did not complete");
+/// # }
+/// # }
 #[macro_export]
 macro_rules! optional {
     ($i:expr, $f:ident) => {
@@ -301,8 +455,25 @@ macro_rules! optional {
     }};
 }
 
-/// Runs a single parser repeating 0 or mre times and returns a possibly empty
+/// Runs a single matcher repeating 0 or mre times and returns a possibly empty
 /// vector of the parsed results.
+/// 
+/// ```
+/// # #[macro_use] extern crate abortable_parser;
+/// use abortable_parser::iter;
+/// # use abortable_parser::{Result, Offsetable};
+/// # fn main() {
+/// let input_str = "foofoo";
+/// let iter = iter::SliceIter::new(input_str.as_bytes());
+/// let result = repeat!(iter, text_token!("foo"));
+/// # assert!(result.is_complete());
+/// if let Result::Complete(_, o) = result {
+///     assert_eq!(2, o.len());
+///     assert_eq!("foo", o[0]);
+///     assert_eq!("foo", o[1]);
+/// }
+/// # }
+/// ```
 #[macro_export]
 macro_rules! repeat {
     ($i:expr, $f:ident!( $( $args:tt )* ) ) => {{
