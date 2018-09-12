@@ -648,24 +648,25 @@ macro_rules! text_token {
 #[macro_export]
 macro_rules! until {
     ($i:expr, $term:ident!( $( $args:tt )* ) ) => {{
-        use $crate::{Result, Offsetable};
-        let mut acc = Vec::new();
+        use $crate::{Result, Offsetable, Span, SpanRange};
+        let start_offset = $i.get_offset();
         let mut _i = $i.clone();
         let pfn = || {
             loop {
                 match $term!(_i.clone(), $($args)*) {
-                    Result::Complete(_, _) => return Result::Complete(_i, acc),
+                    Result::Complete(_, _) => {
+                        let range = SpanRange::Range(start_offset.._i.get_offset());
+                        return Result::Complete(_i, $i.span(range));
+                    },
                     Result::Abort(e) => return Result::Abort(e),
                     Result::Incomplete(offset) => return Result::Incomplete(offset),
                     Result::Fail(_) => {
                         // noop
                     }
                 }
-                let item = match _i.next() {
-                    Some(it) => it,
-                    None => return Result::Incomplete(_i.get_offset()),
-                };
-                acc.push(item);
+                if let None = _i.next() {
+                    return Result::Incomplete(_i.get_offset());
+                }
             }
         };
         pfn()
@@ -674,24 +675,4 @@ macro_rules! until {
     ($i:expr, $term:ident) => {
         consume_until!($i, run!($term))
     };
-}
-
-/// Maps a Result of type Vec<&u8> to a Result of type String.
-pub fn must_string<'a, I, E>(matched: Result<I, Vec<&'a u8>>, msg: E) -> Result<I, String>
-where
-    I: InputIter<Item=&'a u8>,
-    E: Into<String>,
-{
-        match matched {
-            Result::Complete(i, mut o) => {
-                let new_string = String::from_utf8(o.drain(0..).map(|b| *b).collect());
-                match new_string {
-                    Ok(s) => Result::Complete(i, s),
-                    Err(_) => Result::Abort(Error::new(msg, &i)),
-                }
-            },
-            Result::Incomplete(offset) => Result::Incomplete(offset),
-            Result::Abort(e) => Result::Abort(e),
-            Result::Fail(e) => Result::Fail(e),
-        }
 }

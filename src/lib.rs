@@ -13,6 +13,18 @@ impl Offsetable for usize {
     }
 }
 
+pub enum SpanRange {
+    Range(std::ops::Range<usize>),
+    RangeTo(std::ops::RangeTo<usize>),
+    RangeFrom(std::ops::RangeFrom<usize>),
+    RangeFull(std::ops::RangeFull),
+}
+
+// An input that can provide a span of a range of the input.
+pub trait Span<O> {
+    fn span(&self, idx: SpanRange) -> O;
+}
+
 /// A Cloneable Iterator that can report an offset as a count of processed Items.
 pub trait InputIter: Iterator + Clone + Offsetable {}
 

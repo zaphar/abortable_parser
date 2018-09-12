@@ -1,8 +1,7 @@
 use std::fmt::{Debug, Display};
 
 use super::{InputIter, Offsetable, Result};
-use iter::SliceIter;
-use combinators::must_string;
+use iter::{StrIter, SliceIter};
 
 #[test]
 fn test_slice_iter() {
@@ -354,13 +353,13 @@ fn test_repeat_abort() {
 #[test]
 fn test_until() {
     let input_str = "foo; ";
-    let iter = SliceIter::new(input_str.as_bytes());
-    let result = must_string(until!(iter, text_token!("; ")), "AAAHHH!".to_string());
+    let iter = StrIter::new(input_str);
+    let result = until!(iter, text_token!("; "));
     assert!(result.is_complete());
     if let Result::Complete(i, o) = result {
         assert_eq!(i.get_offset(), 3);
         assert_eq!(o.len(), 3);
-        assert_eq!(&o, "foo");
+        assert_eq!(o, "foo");
     } 
 }
 
