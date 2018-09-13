@@ -61,6 +61,12 @@ impl Offsetable for usize {
     }
 }
 
+/// Trait for Inputs that can track lines and columns in a text input.
+pub trait TextPositionTracker {
+    fn line(&self) -> usize;
+    fn column(&self) -> usize;
+}
+
 pub enum SpanRange {
     Range(std::ops::Range<usize>),
     RangeTo(std::ops::RangeTo<usize>),

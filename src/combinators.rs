@@ -759,3 +759,12 @@ macro_rules! make_fn {
     };
 
 }
+
+#[macro_export]
+macro_rules! pos {
+    ($i:expr) => {{
+        let _i = $i.clone();
+        use $crate::TextPositionTracker;
+        $crate::Result::Complete($i, (_i.line(), _i.column()))
+    }}
+}

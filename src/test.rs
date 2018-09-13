@@ -462,3 +462,21 @@ fn test_ascii_ws_carriage_return() {
     let result = ascii_ws(iter);
     assert!(result.is_complete());
 }
+
+use super::TextPositionTracker;
+#[test]
+fn test_position_tracking_striter() {
+    let input_str = "\n";
+    let mut iter = StrIter::new(input_str);
+    assert_eq!(iter.line(), 1);
+    assert_eq!(iter.column(), 1);
+    iter.next();
+    assert_eq!(iter.line(), 2);
+    assert_eq!(iter.column(), 1);
+    let pos_result = pos!(iter);
+    assert!(pos_result.is_complete());
+    if let Result::Complete(_, (line, column)) = pos_result {
+        assert_eq!(line, 2);
+        assert_eq!(column, 1);
+    }
+}

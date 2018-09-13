@@ -2,7 +2,7 @@
 use std::fmt::Debug;
 use std::iter::Iterator;
 
-use super::{InputIter, Offsetable, Span, SpanRange};
+use super::{InputIter, Offsetable, Span, SpanRange, TextPositionTracker};
 
 /// Implements `InputIter` for any slice of T.
 #[derive(Debug)]
@@ -86,6 +86,8 @@ impl<'a, T: Debug> From<&'a Vec<T>> for SliceIter<'a, T> {
 pub struct StrIter<'a> {
     source: &'a str,
     offset: usize,
+    line: usize,
+    column: usize,
 }
 
 impl<'a> StrIter<'a> {
@@ -94,6 +96,8 @@ impl<'a> StrIter<'a> {
         StrIter {
             source: source,
             offset: 0,
+            line: 1,
+            column: 1,
         }
     }
 }
@@ -103,8 +107,15 @@ impl<'a> Iterator for StrIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.source.as_bytes().get(self.offset) {
+            // TODO count lines and columns.
             Some(item) => {
                 self.offset += 1;
+                if *item == b'\n' {
+                    self.line += 1;
+                    self.column = 1;
+                } else {
+                    self.column += 1;
+                }
                 Some(item)
             }
             None => None,
@@ -118,11 +129,23 @@ impl<'a> Offsetable for StrIter<'a> {
     }
 }
 
+impl<'a> TextPositionTracker for StrIter<'a> {
+    fn line(&self) -> usize {
+        self.line
+    }
+
+    fn column(&self) -> usize {
+        self.column
+    }
+}
+
 impl<'a> Clone for StrIter<'a> {
     fn clone(&self) -> Self {
         StrIter {
             source: self.source,
             offset: self.offset,
+            line: self.line,
+            column: self.column,
         }
     }
 }
