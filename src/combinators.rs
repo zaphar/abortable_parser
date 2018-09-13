@@ -647,13 +647,13 @@ macro_rules! text_token {
 /// ```
 #[macro_export]
 macro_rules! until {
-    ($i:expr, $term:ident!( $( $args:tt )* ) ) => {{
+    ($i:expr, $rule:ident!( $( $args:tt )* ) ) => {{
         use $crate::{Result, Offsetable, Span, SpanRange};
         let start_offset = $i.get_offset();
         let mut _i = $i.clone();
         let pfn = || {
             loop {
-                match $term!(_i.clone(), $($args)*) {
+                match $rule!(_i.clone(), $($args)*) {
                     Result::Complete(_, _) => {
                         let range = SpanRange::Range(start_offset.._i.get_offset());
                         return Result::Complete(_i, $i.span(range));
@@ -672,8 +672,8 @@ macro_rules! until {
         pfn()
     }};
 
-    ($i:expr, $term:ident) => {
-        consume_until!($i, run!($term))
+    ($i:expr, $rule:ident) => {
+        consume_until!($i, run!($rule))
     };
 }
 
@@ -681,13 +681,13 @@ macro_rules! until {
 /// Leaves Failures, Aborts, and Incompletes untouched.
 #[macro_export]
 macro_rules! discard {
-    ($i:expr, $term:ident) => {
-        discard!($i, run!($term))
+    ($i:expr, $rule:ident) => {
+        discard!($i, run!($rule))
     };
 
-    ($i:expr, $term:ident!( $( $args:tt )* ) ) => {{
+    ($i:expr, $rule:ident!( $( $args:tt )* ) ) => {{
         use $crate::Result;
-        match $term!($i, $($args)*) {
+        match $rule!($i, $($args)*) {
             Result::Complete(i, _) => Result::Complete(i, ()),
             Result::Incomplete(offset) => Result::Incomplete(offset),
             Result::Fail(e) => Result::Fail(e),
