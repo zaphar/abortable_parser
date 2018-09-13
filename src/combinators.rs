@@ -724,19 +724,36 @@ pub fn eoi<I: InputIter>(i: I) -> Result<I, ()> {
     }
 }
 
-/// constructs a function named $name that takes an input of type $i and produces an output
+/// Constructs a function named $name that takes an input of type $i and produces an output
 /// of type $o.
 ///
+/// ```
+/// # #[macro_use] extern crate abortable_parser;
+/// # use abortable_parser::iter::StrIter;
+/// make_fn!(myrule<StrIter, &str>,
+///     text_token!("token")
+/// );
+/// ```
+/// 
+/// You can also specify that the function is public if so desired.
+/// 
+/// ```
+/// # #[macro_use] extern crate abortable_parser;
+/// # use abortable_parser::iter::StrIter;
+/// make_fn!(pub otherrule<StrIter, &str>,
+///     text_token!("other")
+/// );
+/// ```
 #[macro_export]
 macro_rules! make_fn {
     ($name:ident<$i:ty, $o:ty>, $rule:ident!($( $body:tt )* )) => {
-        fn $name(i: $i) -> Result<$i,$o> {
+        fn $name(i: $i) -> $crate::Result<$i,$o> {
             $rule!(i, $($body)*)
         }
     };
     
     (pub $name:ident<$i:ty, $o:ty>, $rule:ident!($( $body:tt )* )) => {
-        pub fn $name(i: $i) -> Result<$i,$o> {
+        pub fn $name(i: $i) -> $crate::Result<$i,$o> {
             $rule!(i, $($body)*)
         }
     };
