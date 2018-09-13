@@ -676,3 +676,77 @@ macro_rules! until {
         consume_until!($i, run!($term))
     };
 }
+
+/// Discards the output of a combinator rule when it completes and just returns `()`.
+/// Leaves Failures, Aborts, and Incompletes untouched.
+#[macro_export]
+macro_rules! discard {
+    ($i:expr, $term:ident) => {
+        discard!($i, run!($term))
+    };
+
+    ($i:expr, $term:ident!( $( $args:tt )* ) ) => {{
+        use $crate::Result;
+        match $term!($i, $($args)*) {
+            Result::Complete(i, _) => Result::Complete(i, ()),
+            Result::Incomplete(offset) => Result::Incomplete(offset),
+            Result::Fail(e) => Result::Fail(e),
+            Result::Abort(e) => Result::Abort(e),
+        }
+    }};
+}
+
+/// Matches and returns any ascii charactar whitespace byte.
+pub fn ascii_ws<'a, I: InputIter<Item=&'a u8>>(mut i: I) -> Result<I, u8> {
+    match i.next() {
+        Some(b) => {
+            match b {
+                b'\r' => Result::Complete(i, *b),
+                b'\n' => Result::Complete(i, *b),
+                b'\t' => Result::Complete(i, *b),
+                b' ' => Result::Complete(i, *b),
+                _ => Result::Fail(Error::new("Not whitespace", &i)),
+            }
+        },
+        None => {
+            Result::Fail(Error::new("Unexpected End Of Input", &i))
+        }
+    }
+}
+
+/// Matches the end of input for any InputIter.
+/// Returns `()` for any match.
+pub fn eoi<I: InputIter>(i: I) -> Result<I, ()> {
+    let mut _i = i.clone();
+    match _i.next() {
+        Some(_) => Result::Fail(Error::new("Expected End Of Input", &i)),
+        None => Result::Complete(i, ()),
+    }
+}
+
+/// constructs a function named $name that takes an input of type $i and produces an output
+/// of type $o.
+///
+#[macro_export]
+macro_rules! make_fn {
+    ($name:ident<$i:ty, $o:ty>, $rule:ident!($( $body:tt )* )) => {
+        fn $name(i: $i) -> Result<$i,$o> {
+            $rule!(i, $($body)*)
+        }
+    };
+    
+    (pub $name:ident<$i:ty, $o:ty>, $rule:ident!($( $body:tt )* )) => {
+        pub fn $name(i: $i) -> Result<$i,$o> {
+            $rule!(i, $($body)*)
+        }
+    };
+
+    ($name:ident<$i:ty, $o:ty>, $rule:ident) => {
+        make_fn!($name<$i, $o>, run!($rule))
+    };
+
+    (pub $name:ident<$i:ty, $o:ty>, $rule:ident) => {
+        make_fn!(pub $name<$i, $o>, run!($rule))
+    };
+
+}

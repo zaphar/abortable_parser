@@ -2,6 +2,7 @@ use std::fmt::{Debug, Display};
 
 use super::{InputIter, Offsetable, Result};
 use iter::{StrIter, SliceIter};
+use combinators::*;
 
 #[test]
 fn test_slice_iter() {
@@ -377,4 +378,87 @@ fn test_until_incomplete() {
     let iter = SliceIter::new(input_str.as_bytes());
     let result = until!(iter, text_token!("; "));
     assert!(result.is_incomplete());
+}
+
+#[test]
+fn test_discard_success() {
+    let input_str = "foo";
+    let iter = SliceIter::new(input_str.as_bytes());
+    let result = discard!(iter, text_token!("foo"));
+    assert!(result.is_complete());
+    if let Result::Complete(_, o) = result {
+        assert_eq!(o, ());
+    }
+}
+
+#[test]
+fn test_discard_fail() {
+    let input_str = "foo";
+    let iter = SliceIter::new(input_str.as_bytes());
+    let result = discard!(iter, will_fail);
+    assert!(result.is_fail());
+}
+
+#[test]
+fn test_discard_abort() {
+    let input_str = "foo";
+    let iter = SliceIter::new(input_str.as_bytes());
+    let result = discard!(iter, must!(will_fail));
+    assert!(result.is_abort());
+}
+
+#[test]
+fn test_discard_incomplete() {
+    let input_str = "foo";
+    let iter = SliceIter::new(input_str.as_bytes());
+    let result = discard!(iter, will_not_complete);
+    assert!(result.is_incomplete());
+}
+
+#[test]
+fn test_eoi_success() {
+    let input_str = "";
+    let iter = StrIter::new(input_str);
+    let result = eoi(iter);
+    assert!(result.is_complete());
+}
+
+#[test]
+fn test_eoi_fail() {
+    let input_str = " ";
+    let iter = StrIter::new(input_str);
+    let result = eoi(iter);
+    assert!(result.is_fail());
+}
+
+#[test]
+fn test_ascii_ws_space() {
+    let input_str = " ";
+    let iter = StrIter::new(input_str);
+    let result = ascii_ws(iter);
+    assert!(result.is_complete());
+}
+
+#[test]
+fn test_ascii_ws_tab() {
+    let input_str = "\t";
+    let iter = StrIter::new(input_str);
+    let result = ascii_ws(iter);
+    assert!(result.is_complete());
+}
+
+#[test]
+fn test_ascii_ws_newline() {
+    let input_str = "\n";
+    let iter = StrIter::new(input_str);
+    let result = ascii_ws(iter);
+    assert!(result.is_complete());
+}
+
+#[test]
+fn test_ascii_ws_carriage_return() {
+    let input_str = "\r";
+    let iter = StrIter::new(input_str);
+    let result = ascii_ws(iter);
+    assert!(result.is_complete());
 }

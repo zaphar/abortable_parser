@@ -1,4 +1,52 @@
 //! An opinionated parser combinator library with a focus on fully abortable parsing and error handling.
+//! 
+//! # Example
+//! 
+//! ```
+//! #[macro_use]
+//! extern crate abortable_parser;
+//! use abortable_parser::iter::StrIter;
+//! use abortable_parser::{Result, eoi, ascii_ws};
+//! 
+//! make_fn!(proto<StrIter, &str>,
+//!     do_each!(
+//!         proto => until!(text_token!("://")),
+//!         _ => must!(text_token!("://")),
+//!         (proto)
+//!     )
+//! );
+//!
+//! make_fn!(domain<StrIter, &str>,
+//!     until!(either!(
+//!         discard!(text_token!("/")),
+//!         discard!(ascii_ws),
+//!         eoi))
+//! );
+//! 
+//! make_fn!(path<StrIter, &str>,
+//!      until!(either!(discard!(ascii_ws), eoi))
+//! );
+//! 
+//! make_fn!(url<StrIter, (Option<&str>, Option<&str>, &str)>,
+//!     do_each!(
+//!         protocol => optional!(proto),
+//!         domain => optional!(domain),
+//!         path => path,
+//!         (protocol, domain, path)
+//!     )
+//! );
+//! 
+//! # fn main() {
+//! let iter = StrIter::new("http://example.com/some/path ");
+//! let result = url(iter);
+//! assert!(result.is_complete());
+//! if let Result::Complete(_, (proto, domain, path)) = result {
+//!     assert!(proto.is_some());
+//!     assert!(domain.is_some());
+//!     assert_eq!(path, "/some/path");
+//! }
+//! # }
+//! ```
 use std::fmt::Display;
 use std::iter::Iterator;
 
@@ -142,6 +190,7 @@ impl<I: InputIter, O> Result<I, O> {
 }
 
 pub use iter::SliceIter;
+pub use combinators::*;
 
 #[macro_use]
 pub mod combinators;
@@ -149,3 +198,5 @@ pub mod iter;
 
 #[cfg(test)]
 mod test;
+#[cfg(test)]
+mod integration_tests;
