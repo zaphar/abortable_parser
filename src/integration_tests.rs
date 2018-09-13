@@ -1,4 +1,3 @@
-
 use super::{ascii_ws, eoi, Result};
 use iter::StrIter;
 

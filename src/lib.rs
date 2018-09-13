@@ -1,6 +1,13 @@
 //! An opinionated parser combinator library with a focus on fully abortable parsing and error handling.
 //!
-//! # Example
+//! The approach to macro composition is heavily inspired by nom. However we emphasize error
+//! handling as a first class citizen. abortable_parser has the concept of an unrecoverable
+//! parsing error as distinct from a general failure to match.
+//!
+//! We have a numner of macros that assist in the gneration or handling of each type
+//! of error.
+//!
+//! # Simple parsing of a url.
 //!
 //! ```
 //! #[macro_use]
@@ -17,22 +24,46 @@
 //! );
 //!
 //! make_fn!(domain<StrIter, &str>,
-//!     until!(either!(
-//!         discard!(text_token!("/")),
-//!         discard!(ascii_ws),
-//!         eoi))
+//!     do_each!(
+//!         // domains do not start with a slash
+//!         _ => peek!(not!(text_token!("/"))),
+//!         domain => until!(either!(
+//!             discard!(text_token!("/")),
+//!             discard!(ascii_ws),
+//!             eoi)),
+//!         (domain)
+//!     )
 //! );
 //!
 //! make_fn!(path<StrIter, &str>,
 //!      until!(either!(discard!(ascii_ws), eoi))
 //! );
 //!
-//! make_fn!(url<StrIter, (Option<&str>, Option<&str>, &str)>,
+//! make_fn!(full_url<StrIter, (Option<&str>, Option<&str>, Option<&str>)>,
 //!     do_each!(
-//!         protocol => optional!(proto),
-//!         domain => optional!(domain),
+//!         protocol => proto,
+//!         // If we match the protocol then we must have a domain.
+//!         // This is an example of an unrecoverable parsing error so we
+//!         // abort with the must! macro if it doesn't match.
+//!         domain => must!(domain),
+//!         path => optional!(path),
+//!         (Some(protocol), Some(domain), path)
+//!     )
+//! );
+//!
+//! make_fn!(relative_url<StrIter, (Option<&str>, Option<&str>, Option<&str>)>,
+//!     do_each!(
+//!         _ => not!(either!(text_token!("//"), proto)),
+//!         // we require a valid path for relative urls.
 //!         path => path,
-//!         (protocol, domain, path)
+//!         (None, None, Some(path))
+//!     )
+//! );
+//!
+//! make_fn!(url<StrIter, (Option<&str>, Option<&str>, Option<&str>)>,
+//!     either!(
+//!         full_url,
+//!         relative_url,
 //!     )
 //! );
 //!
@@ -43,8 +74,18 @@
 //! if let Result::Complete(_, (proto, domain, path)) = result {
 //!     assert!(proto.is_some());
 //!     assert!(domain.is_some());
-//!     assert_eq!(path, "/some/path");
+//!     if let Some(domain) = domain {
+//!         assert_eq!(domain, "example.com");
+//!     }
+//!     assert!(path.is_some());
+//!     if let Some(path) = path {
+//!         assert_eq!(path, "/some/path");
+//!     }
 //! }
+//!
+//! let bad_input = StrIter::new("http:///some/path");
+//! let bad_result = url(bad_input);
+//! assert!(bad_result.is_abort());
 //! # }
 //! ```
 use std::fmt::Display;
@@ -67,6 +108,7 @@ pub trait TextPositionTracker {
     fn column(&self) -> usize;
 }
 
+/// SpanRange encompasses the valid Ops::Range types for use with the Span trait.
 pub enum SpanRange {
     Range(std::ops::Range<usize>),
     RangeTo(std::ops::RangeTo<usize>),
@@ -74,7 +116,7 @@ pub enum SpanRange {
     RangeFull(std::ops::RangeFull),
 }
 
-// An input that can provide a span of a range of the input.
+/// An input that can provide a span of a range of the input.
 pub trait Span<O> {
     fn span(&self, idx: SpanRange) -> O;
 }

@@ -760,11 +760,13 @@ macro_rules! make_fn {
 
 }
 
+/// For inputs that implement the TextPositionTracker trait returns the current
+/// line and column position for this input.
 #[macro_export]
 macro_rules! pos {
     ($i:expr) => {{
         let _i = $i.clone();
         use $crate::TextPositionTracker;
         $crate::Result::Complete($i, (_i.line(), _i.column()))
-    }}
+    }};
 }
