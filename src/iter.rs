@@ -55,10 +55,10 @@ impl<'a, T: Debug + 'a> InputIter for SliceIter<'a, T> {}
 impl<'a, T: Debug + 'a> Span<&'a [T]> for SliceIter<'a, T> {
     fn span(&self, idx: SpanRange) -> &'a [T] {
         match idx {
-           SpanRange::Range(r) => self.source.index(r), 
-           SpanRange::RangeTo(r) => self.source.index(r), 
-           SpanRange::RangeFrom(r) => self.source.index(r), 
-           SpanRange::RangeFull(r) => self.source.index(r), 
+            SpanRange::Range(r) => self.source.index(r),
+            SpanRange::RangeTo(r) => self.source.index(r),
+            SpanRange::RangeFrom(r) => self.source.index(r),
+            SpanRange::RangeFull(r) => self.source.index(r),
         }
     }
 }
@@ -75,7 +75,7 @@ impl<'a, T: Debug> From<&'a [T]> for SliceIter<'a, T> {
     }
 }
 
-impl <'a, T: Debug> From<&'a Vec<T>> for SliceIter<'a, T> {
+impl<'a, T: Debug> From<&'a Vec<T>> for SliceIter<'a, T> {
     fn from(source: &'a Vec<T>) -> Self {
         SliceIter::new(source.as_slice())
     }
@@ -140,10 +140,10 @@ use std::ops::Index;
 impl<'a> Span<&'a str> for StrIter<'a> {
     fn span(&self, idx: SpanRange) -> &'a str {
         match idx {
-           SpanRange::Range(r) => self.source.index(r), 
-           SpanRange::RangeTo(r) => self.source.index(r), 
-           SpanRange::RangeFrom(r) => self.source.index(r), 
-           SpanRange::RangeFull(r) => self.source.index(r), 
+            SpanRange::Range(r) => self.source.index(r),
+            SpanRange::RangeTo(r) => self.source.index(r),
+            SpanRange::RangeFrom(r) => self.source.index(r),
+            SpanRange::RangeFull(r) => self.source.index(r),
         }
     }
 }

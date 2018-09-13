@@ -1,13 +1,13 @@
 //! An opinionated parser combinator library with a focus on fully abortable parsing and error handling.
-//! 
+//!
 //! # Example
-//! 
+//!
 //! ```
 //! #[macro_use]
 //! extern crate abortable_parser;
 //! use abortable_parser::iter::StrIter;
 //! use abortable_parser::{Result, eoi, ascii_ws};
-//! 
+//!
 //! make_fn!(proto<StrIter, &str>,
 //!     do_each!(
 //!         proto => until!(text_token!("://")),
@@ -22,11 +22,11 @@
 //!         discard!(ascii_ws),
 //!         eoi))
 //! );
-//! 
+//!
 //! make_fn!(path<StrIter, &str>,
 //!      until!(either!(discard!(ascii_ws), eoi))
 //! );
-//! 
+//!
 //! make_fn!(url<StrIter, (Option<&str>, Option<&str>, &str)>,
 //!     do_each!(
 //!         protocol => optional!(proto),
@@ -35,7 +35,7 @@
 //!         (protocol, domain, path)
 //!     )
 //! );
-//! 
+//!
 //! # fn main() {
 //! let iter = StrIter::new("http://example.com/some/path ");
 //! let result = url(iter);
@@ -88,10 +88,11 @@ pub struct Error {
 
 impl Error {
     /// Constructs a new Error with an offset and no cause.
-    pub fn new<S, M>(msg: M, offset: &S) -> Self 
+    pub fn new<S, M>(msg: M, offset: &S) -> Self
     where
         S: Offsetable,
-        M: Into<String> {
+        M: Into<String>,
+    {
         Error {
             msg: msg.into(),
             offset: offset.get_offset(),
@@ -103,8 +104,8 @@ impl Error {
     pub fn caused_by<S, M>(msg: M, offset: &S, cause: Self) -> Self
     where
         S: Offsetable,
-        M: Into<String> {
-
+        M: Into<String>,
+    {
         Error {
             msg: msg.into(),
             offset: offset.get_offset(),
@@ -189,14 +190,14 @@ impl<I: InputIter, O> Result<I, O> {
     }
 }
 
-pub use iter::SliceIter;
 pub use combinators::*;
+pub use iter::SliceIter;
 
 #[macro_use]
 pub mod combinators;
 pub mod iter;
 
 #[cfg(test)]
-mod test;
-#[cfg(test)]
 mod integration_tests;
+#[cfg(test)]
+mod test;

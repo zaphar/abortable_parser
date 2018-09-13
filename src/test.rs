@@ -1,8 +1,8 @@
 use std::fmt::{Debug, Display};
 
 use super::{InputIter, Offsetable, Result};
-use iter::{StrIter, SliceIter};
 use combinators::*;
+use iter::{SliceIter, StrIter};
 
 #[test]
 fn test_slice_iter() {
@@ -361,7 +361,7 @@ fn test_until() {
         assert_eq!(i.get_offset(), 3);
         assert_eq!(o.len(), 3);
         assert_eq!(o, "foo");
-    } 
+    }
 }
 
 #[test]

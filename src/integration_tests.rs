@@ -1,7 +1,8 @@
- use iter::StrIter;
- use super::{Result, eoi, ascii_ws};
- 
- make_fn!(proto<StrIter, &str>,
+
+use super::{ascii_ws, eoi, Result};
+use iter::StrIter;
+
+make_fn!(proto<StrIter, &str>,
      do_each!(
          proto => until!(text_token!("://")),
          _ => must!(text_token!("://")),
@@ -9,18 +10,18 @@
      )
  );
 
- make_fn!(domain<StrIter, &str>,
+make_fn!(domain<StrIter, &str>,
      until!(either!(
          discard!(text_token!("/")),
          discard!(ascii_ws),
          eoi))
  );
- 
- make_fn!(path<StrIter, &str>,
+
+make_fn!(path<StrIter, &str>,
       until!(either!(discard!(ascii_ws), eoi))
  );
- 
- make_fn!(pub url<StrIter, (Option<&str>, Option<&str>, &str)>,
+
+make_fn!(pub url<StrIter, (Option<&str>, Option<&str>, &str)>,
      do_each!(
          protocol => optional!(proto),
          domain => optional!(domain),
@@ -39,4 +40,4 @@ fn test_url_parser() {
         assert!(domain.is_some());
         assert_eq!(path, "/some/path");
     }
-} 
+}
