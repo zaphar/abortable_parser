@@ -14,7 +14,7 @@
 
 use std::fmt::{Debug, Display};
 
-use super::{InputIter, Offsetable, Result};
+use super::{InputIter, Offsetable, Result, TextPositionTracker};
 use combinators::*;
 use iter::{SliceIter, StrIter};
 
@@ -253,6 +253,23 @@ fn test_do_each() {
 }
 
 #[test]
+fn test_do_each_input_and_token() {
+    let input_str = "foo";
+    let iter = SliceIter::new(input_str.as_bytes());
+    let result = do_each!(iter,
+        _ => input!(),
+        token => text_token!("foo"),
+        (token)
+    );
+    assert!(result.is_complete());
+    if let Result::Complete(_, o) = result {
+        assert_eq!("foo", o);
+    } else {
+        assert!(false, "did not get our token");
+    }
+}
+
+#[test]
 fn test_either_idents() {
     let input_str = "foo";
     let iter = SliceIter::new(input_str.as_bytes());
@@ -477,7 +494,6 @@ fn test_ascii_ws_carriage_return() {
     assert!(result.is_complete());
 }
 
-use super::TextPositionTracker;
 #[test]
 fn test_position_tracking_striter() {
     let input_str = "\n";
@@ -487,10 +503,146 @@ fn test_position_tracking_striter() {
     iter.next();
     assert_eq!(iter.line(), 2);
     assert_eq!(iter.column(), 1);
-    let pos_result = pos!(iter);
+    let pos_result: Result<StrIter, StrIter> = input!(iter);
     assert!(pos_result.is_complete());
-    if let Result::Complete(_, (line, column)) = pos_result {
-        assert_eq!(line, 2);
-        assert_eq!(column, 1);
+    if let Result::Complete(_, i) = pos_result {
+        assert_eq!(i.line(), 2);
+        assert_eq!(i.column(), 1);
+    }
+}
+
+#[test]
+fn test_separated_good() {
+    let input_str = "foo,foo,foo";
+    let iter = StrIter::new(input_str);
+    let result = separated!(iter, text_token!(","), text_token!("foo"));
+    assert!(result.is_complete());
+    if let Result::Complete(_, list) = result {
+        assert_eq!(list.len(), 3);
+        assert_eq!(list[0], "foo");
+        assert_eq!(list[1], "foo");
+        assert_eq!(list[2], "foo");
+    }
+}
+
+#[test]
+fn test_separated_single_item() {
+    let input_str = "foo";
+    let iter = StrIter::new(input_str);
+    let result = separated!(iter, text_token!(","), text_token!("foo"));
+    assert!(result.is_complete());
+    if let Result::Complete(_, list) = result {
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0], "foo");
+    }
+}
+
+#[test]
+fn test_separated_empty_list() {
+    let input_str = "";
+    let iter = StrIter::new(input_str);
+    let result = separated!(iter, text_token!(","), text_token!("foo"));
+    assert!(result.is_fail());
+}
+
+#[test]
+fn test_separated_bad() {
+    let input_str = "bar foo,foo";
+    let iter = StrIter::new(input_str);
+    let result = separated!(iter, text_token!(","), text_token!("foo"));
+    assert!(result.is_fail());
+}
+
+#[test]
+fn test_separated_trailing_comma() {
+    let input_str = "foo,foo,foo,";
+    let iter = StrIter::new(input_str);
+    let result = separated!(iter, text_token!(","), text_token!("foo"));
+    assert!(result.is_complete());
+    if let Result::Complete(i, list) = result {
+        assert_eq!(list.len(), 3);
+        assert_eq!(list[0], "foo");
+        assert_eq!(list[1], "foo");
+        assert_eq!(list[2], "foo");
+        assert!(text_token!(i, ",").is_complete());
+    }
+}
+
+#[test]
+fn test_ascii_alphanumeric() {
+    let input_str = "a1";
+    let iter = StrIter::new(input_str);
+    let result = repeat!(iter, ascii_alphanumeric);
+    assert!(result.is_complete());
+    if let Result::Complete(i,list) = result {
+        assert_eq!(list.len(), 2);
+        assert_eq!(list[0], b'a');
+        assert_eq!(list[1], b'1');
+        assert!(eoi(i).is_complete());
+    }
+}
+
+#[test]
+fn test_ascii_alphanumeric_fail() {
+    let input_str = "-";
+    let iter = StrIter::new(input_str);
+    let result = ascii_alphanumeric(iter);
+    assert!(result.is_fail());
+}
+
+#[test]
+fn test_ascii_digit() {
+    let input_str = "12";
+    let iter = StrIter::new(input_str);
+    let result = repeat!(iter, ascii_digit);
+    assert!(result.is_complete());
+    if let Result::Complete(i,list) = result {
+        assert_eq!(list.len(), 2);
+        assert_eq!(list[0], b'1');
+        assert_eq!(list[1], b'2');
+        assert!(eoi(i).is_complete());
+    }
+}
+
+#[test]
+fn test_ascii_digit_fail() {
+    let input_str = "-";
+    let iter = StrIter::new(input_str);
+    let result = ascii_digit(iter);
+    assert!(result.is_fail());
+}
+
+#[test]
+fn test_ascii_alpha() {
+    let input_str = "ab";
+    let iter = StrIter::new(input_str);
+    let result = repeat!(iter, ascii_alpha);
+    assert!(result.is_complete());
+    if let Result::Complete(i,list) = result {
+        assert_eq!(list.len(), 2);
+        assert_eq!(list[0], b'a');
+        assert_eq!(list[1], b'b');
+        assert!(eoi(i).is_complete());
+    }
+}
+
+#[test]
+fn test_ascii_alpha_fail() {
+    let input_str = "1";
+    let iter = StrIter::new(input_str);
+    let result = ascii_alpha(iter);
+    assert!(result.is_fail());
+}
+
+#[test]
+fn test_consume_all() {
+    let input_str = "foo;";
+    let iter = StrIter::new(input_str);
+    let result = consume_all!(iter, ascii_alpha);
+    assert!(result.is_complete());
+    if let Result::Complete(i, o) = result {
+        assert_eq!(i.get_offset(), 3);
+        assert_eq!(o, "foo");
+        assert!(text_token!(i, ";").is_complete());
     }
 }

@@ -104,6 +104,7 @@
 //! ```
 use std::fmt::Display;
 use std::iter::Iterator;
+use std::result;
 
 /// A trait for types that can have an offset as a count of processed items.
 pub trait Offsetable {
@@ -114,6 +115,10 @@ impl Offsetable for usize {
     fn get_offset(&self) -> usize {
         return *self;
     }
+}
+
+pub trait Seekable {
+    fn seek(&mut self, usize) -> usize;
 }
 
 /// Trait for Inputs that can track lines and columns in a text input.
@@ -135,6 +140,10 @@ pub trait Span<O> {
     fn span(&self, idx: SpanRange) -> O;
 }
 
+pub trait Peekable<O> {
+    fn peek_next(&self) -> Option<O>;
+}
+
 /// A Cloneable Iterator that can report an offset as a count of processed Items.
 pub trait InputIter: Iterator + Clone + Offsetable {}
 
@@ -142,7 +151,8 @@ pub trait InputIter: Iterator + Clone + Offsetable {}
 /// Stores a wrapped err that must implement Display as well as an offset and
 /// an optional cause.
 #[derive(Debug)]
-pub struct Error {
+pub struct Error 
+{
     msg: String,
     offset: usize,
     cause: Option<Box<Error>>,
@@ -150,10 +160,9 @@ pub struct Error {
 
 impl Error {
     /// Constructs a new Error with an offset and no cause.
-    pub fn new<S, M>(msg: M, offset: &S) -> Self
+    pub fn new<S, D: Into<String>>(msg: D, offset: &S) -> Self
     where
         S: Offsetable,
-        M: Into<String>,
     {
         Error {
             msg: msg.into(),
@@ -163,28 +172,27 @@ impl Error {
     }
 
     /// Constructs a new Error with an offset and a cause.
-    pub fn caused_by<S, M>(msg: M, offset: &S, cause: Self) -> Self
+    pub fn caused_by<'a, S, D: Into<String>>(msg: D, offset: &'a S, cause: Box<Self>) -> Self
     where
         S: Offsetable,
-        M: Into<String>,
     {
         Error {
             msg: msg.into(),
             offset: offset.get_offset(),
-            cause: Some(Box::new(cause)),
+            cause: Some(cause),
         }
     }
 
-    /// Returns the contained err.
-    pub fn get_msg<'a>(&'a self) -> &'a str {
-        &self.msg
+    /// Returns the msg.
+    pub fn get_msg<'a>(&'a self) -> String {
+        format!("{}", &self.msg)
     }
 
     /// Returns `Some(cause)` if there is one, None otherwise.
     pub fn get_cause<'a>(&'a self) -> Option<&'a Error> {
         match self.cause {
-            Some(ref cause) => Some(cause),
-            None => None,
+            Some(ref e) => Some(e),
+            None => None
         }
     }
 
@@ -195,7 +203,7 @@ impl Error {
 }
 
 impl Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> result::Result<(), std::fmt::Error> {
         try!(write!(f, "{}", self.msg));
         match self.cause {
             Some(ref c) => write!(f, "\n\tCaused By:{}", c),
@@ -204,9 +212,12 @@ impl Display for Error {
     }
 }
 
+impl std::error::Error for Error {}
+
 /// The result of a parsing attempt.
 #[derive(Debug)]
-pub enum Result<I: InputIter, O> {
+pub enum Result<I: InputIter, O>
+{
     /// Complete represents a successful match.
     Complete(I, O),
     /// Incomplete indicates input ended before a match could be completed.
@@ -218,7 +229,8 @@ pub enum Result<I: InputIter, O> {
     Abort(Error),
 }
 
-impl<I: InputIter, O> Result<I, O> {
+impl<I: InputIter, O> Result<I, O>
+{
     /// Returns true if the Result is Complete.
     pub fn is_complete(&self) -> bool {
         if let &Result::Complete(_, _) = self {
@@ -254,6 +266,7 @@ impl<I: InputIter, O> Result<I, O> {
 
 pub use combinators::*;
 pub use iter::SliceIter;
+pub use iter::StrIter;
 
 #[macro_use]
 pub mod combinators;

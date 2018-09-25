@@ -16,7 +16,7 @@
 use std::fmt::Debug;
 use std::iter::Iterator;
 
-use super::{InputIter, Offsetable, Span, SpanRange, TextPositionTracker};
+use super::{InputIter, Offsetable, Seekable, Span, SpanRange, TextPositionTracker};
 
 /// Implements `InputIter` for any slice of T.
 #[derive(Debug)]
@@ -92,6 +92,12 @@ impl<'a, T: Debug> From<&'a [T]> for SliceIter<'a, T> {
 impl<'a, T: Debug> From<&'a Vec<T>> for SliceIter<'a, T> {
     fn from(source: &'a Vec<T>) -> Self {
         SliceIter::new(source.as_slice())
+    }
+}
+
+impl<'a, O: Debug> Peekable<&'a O> for SliceIter<'a, O> {
+    fn peek_next(&self) -> Option<&'a O> {
+        self.source.get(self.offset)
     }
 }
 
@@ -182,5 +188,26 @@ impl<'a> Span<&'a str> for StrIter<'a> {
             SpanRange::RangeFrom(r) => self.source.index(r),
             SpanRange::RangeFull(r) => self.source.index(r),
         }
+    }
+}
+
+impl<'a> Seekable for StrIter<'a> {
+    fn seek(&mut self, to: usize) -> usize {
+        let self_len = self.source.len();
+        let offset = if self_len > to {
+            to
+        } else {
+            self_len
+        };
+        self.offset = offset;
+        self.offset
+    }
+}
+
+use super::Peekable;
+
+impl<'a> Peekable<&'a u8> for StrIter<'a> {
+    fn peek_next(&self) -> Option<&'a u8> {
+        self.source.as_bytes().get(self.offset)
     }
 }

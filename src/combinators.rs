@@ -13,7 +13,6 @@
 //  limitations under the License.
 
 //! Contains combinators that can assemble other matchers or combinators into more complex grammars.
-
 use super::{Error, InputIter, Result};
 
 /// Turns a `Result` to it's inverse.
@@ -176,8 +175,8 @@ macro_rules! wrap_err {
         match $f!($i, $($args)*) {
             $crate::Result::Complete(i, o) => $crate::Result::Complete(i, o),
             $crate::Result::Incomplete(offset) => $crate::Result::Incomplete(offset),
-            $crate::Result::Fail(e) => $crate::Result::Fail($crate::Error::caused_by($e, &_i, e)),
-            $crate::Result::Abort(e) => $crate::Result::Abort($crate::Error::caused_by($e, &_i, e)),
+            $crate::Result::Fail(e) => $crate::Result::Fail($crate::Error::caused_by($e, &_i, Box::new(e))),
+            $crate::Result::Abort(e) => $crate::Result::Abort($crate::Error::caused_by($e, &_i, Box::new(e))),
         }
     }};
     
@@ -237,10 +236,9 @@ macro_rules! trap {
 /// You must specify the error message to use in case the matcher is incomplete.
 ///
 /// The must_complete! macro provides syntactic sugar for using this combinator.
-pub fn must_complete<I, O, M>(result: Result<I, O>, msg: M) -> Result<I, O>
+pub fn must_complete<I, O>(result: Result<I, O>, msg: String) -> Result<I, O>
 where
     I: InputIter,
-    M: Into<String>,
 {
     match result {
         Result::Complete(i, o) => Result::Complete(i, o),
@@ -248,6 +246,32 @@ where
         Result::Fail(e) => Result::Abort(e),
         Result::Abort(e) => Result::Abort(e),
     }
+}
+
+/// Turns `Result::Incomplete` into `Result::Fail`.
+pub fn complete<I, O, S>(result: Result<I, O>, msg: S) -> Result<I, O>
+where 
+    I: InputIter,
+    S: Into<String>,
+{
+    match result {
+        Result::Incomplete(offset) => Result::Fail(Error::new(msg.into(), &offset)),
+        Result::Complete(i, o) => Result::Complete(i, o),
+        Result::Fail(e) => Result::Fail(e),
+        Result::Abort(e) => Result::Abort(e),
+    }
+}
+
+/// Turns  `Result::Incomplete` into `Result::Fail`.
+#[macro_export]
+macro_rules! complete {
+    ($i:expr, $e:expr, $f:ident!( $( $args:tt )* ) ) => {
+        $crate::combinators::complete($f!($i, $($args)*), $e)
+    };
+    
+    ($i:expr, $efn:expr, $f:ident) => {
+        complete!($i, $efn, run!($f))
+    };
 }
 
 /// Turns `Result::Fail` and `Result::Incomplete` into `Result::Abort`.
@@ -594,6 +618,53 @@ macro_rules! repeat {
     };
 }
 
+#[macro_export]
+macro_rules! separated {
+    ($i:expr, $sep_rule:ident!( $( $sep_args:tt )* ), $item_rule:ident!( $( $item_args:tt )* ) ) => {{
+        use $crate::Result;
+        let _i = $i.clone();
+        // We require at least one item for our list
+        let head =  $item_rule!($i.clone(), $($item_args)*);
+        match head {
+            Result::Incomplete(offset) => Result::Incomplete(offset),
+            Result::Fail(e) => Result::Fail(e),
+            Result::Abort(e) => Result::Abort(e),
+            Result::Complete(i,item) => {
+                let mut list = vec![item];
+                // Now we parse a repeat of sep_rule and item_rule.
+                let tail_result = repeat!(i,
+                    do_each!(
+                        _    => $sep_rule!($($sep_args)*),
+                        item => $item_rule!($($item_args)*),
+                        (item)
+                    )
+                );
+                match tail_result {
+                    Result::Fail(e) => Result::Fail(e),
+                    Result::Incomplete(offset) => Result::Incomplete(offset),
+                    Result::Abort(e) => Result::Abort(e),
+                    Result::Complete(i, mut tail) => {
+                        list.extend(tail.drain(0..));
+                        Result::Complete(i, list)
+                    }
+                }
+            }
+        }
+    }};
+
+    ($i:expr, $sep_rule:ident, $item_rule:ident ) => {
+        separated!($i, run!($sep_rule), run!($item_rule))
+    };
+
+    ($i:expr, $sep_rule:ident!( $( $args:tt )* ), $item_rule:ident ) => {
+        separated!($i, $sep_rule!($($args)*), run!($item_rule))
+    };
+
+    ($i:expr, $sep_rule:ident, $item_rule:ident!( $( $args:tt )* ) ) => {
+        separated!($i, run!($sep_rule), $item_rule!($($args)*))
+    };
+}
+
 /// Convenience macro for looking for a specific text token in a byte input stream.
 ///
 /// ```
@@ -683,7 +754,7 @@ macro_rules! until {
     }};
 
     ($i:expr, $rule:ident) => {
-        consume_until!($i, run!($rule))
+        until!($i, run!($rule))
     };
 }
 
@@ -709,14 +780,14 @@ macro_rules! discard {
 /// Matches and returns any ascii charactar whitespace byte.
 pub fn ascii_ws<'a, I: InputIter<Item = &'a u8>>(mut i: I) -> Result<I, u8> {
     match i.next() {
-        Some(b) => match b {
-            b'\r' => Result::Complete(i, *b),
-            b'\n' => Result::Complete(i, *b),
-            b'\t' => Result::Complete(i, *b),
-            b' ' => Result::Complete(i, *b),
-            _ => Result::Fail(Error::new("Not whitespace", &i)),
+        Some(b) => {
+            if (*b as char).is_whitespace() {
+                Result::Complete(i, *b)
+            } else {
+                Result::Fail(Error::new("Not whitespace".to_string(), &i))
+            }
         },
-        None => Result::Fail(Error::new("Unexpected End Of Input", &i)),
+        None => Result::Fail(Error::new("Unexpected End Of Input".to_string(), &i)),
     }
 }
 
@@ -725,7 +796,7 @@ pub fn ascii_ws<'a, I: InputIter<Item = &'a u8>>(mut i: I) -> Result<I, u8> {
 pub fn eoi<I: InputIter>(i: I) -> Result<I, ()> {
     let mut _i = i.clone();
     match _i.next() {
-        Some(_) => Result::Fail(Error::new("Expected End Of Input", &i)),
+        Some(_) => Result::Fail(Error::new("Expected End Of Input".to_string(), &i)),
         None => Result::Complete(i, ()),
     }
 }
@@ -753,34 +824,138 @@ pub fn eoi<I: InputIter>(i: I) -> Result<I, ()> {
 #[macro_export]
 macro_rules! make_fn {
     ($name:ident<$i:ty, $o:ty>, $rule:ident!($( $body:tt )* )) => {
-        fn $name(i: $i) -> $crate::Result<$i,$o> {
+        fn $name(i: $i) -> $crate::Result<$i, $o> {
             $rule!(i, $($body)*)
         }
     };
     
     (pub $name:ident<$i:ty, $o:ty>, $rule:ident!($( $body:tt )* )) => {
-        pub fn $name(i: $i) -> $crate::Result<$i,$o> {
+        pub fn $name(i: $i) -> $crate::Result<$i, $o> {
             $rule!(i, $($body)*)
         }
     };
 
     ($name:ident<$i:ty, $o:ty>, $rule:ident) => {
-        make_fn!($name<$i, $o>, run!($rule))
+        make_fn!($name<$i, $o>, run!($rule));
     };
 
     (pub $name:ident<$i:ty, $o:ty>, $rule:ident) => {
-        make_fn!(pub $name<$i, $o>, run!($rule))
+        make_fn!(pub $name<$i, $o>, run!($rule));
+    };
+}
+
+/// Helper macro that returns the input without consuming it.
+/// 
+/// Useful when you need to get the input and use it to retrieve
+/// positional information like offset or line and column.
+#[macro_export]
+macro_rules! input {
+    ($i:expr) => {
+        input!($i,)
     };
 
-}
-
-/// For inputs that implement the TextPositionTracker trait returns the current
-/// line and column position for this input.
-#[macro_export]
-macro_rules! pos {
-    ($i:expr) => {{
+    ($i:expr,) => {{
         let _i = $i.clone();
-        use $crate::TextPositionTracker;
-        $crate::Result::Complete($i, (_i.line(), _i.column()))
+        $crate::Result::Complete($i, _i)
     }};
 }
+
+/// Consumes the input until the $rule fails and then returns the consumed input as
+/// a slice.
+/// 
+/// ```
+/// # #[macro_use] extern crate abortable_parser;
+/// use abortable_parser::iter;
+/// # use abortable_parser::{Result, Offsetable};
+/// # use abortable_parser::combinators::ascii_alpha;
+/// use std::convert::From;
+/// # fn main() {
+/// let iter: iter::StrIter = "foo;".into();
+/// let tok = consume_all!(iter, ascii_alpha);
+/// # assert!(tok.is_complete());
+/// if let Result::Complete(i, o) = tok {
+///     assert_eq!(i.get_offset(), 3);
+///     assert_eq!(o, "foo");
+/// }
+/// # }
+/// ```
+#[macro_export]
+macro_rules! consume_all {
+    ($i:expr, $rule:ident!( $( $args:tt )* ) ) => {{
+        use $crate::{Result, Offsetable, Span, SpanRange};
+        let start_offset = $i.get_offset();
+        let mut _i = $i.clone();
+        let pfn = || {
+            loop {
+                match $rule!(_i.clone(), $($args)*) {
+                    Result::Complete(_, _) => {
+                        // noop
+                    },
+                    Result::Abort(e) => return Result::Abort(e),
+                    Result::Incomplete(offset) => return Result::Incomplete(offset),
+                    Result::Fail(_) => {
+                        let range = SpanRange::Range(start_offset.._i.get_offset());
+                        return Result::Complete(_i, $i.span(range));
+                    }
+                }
+                if let None = _i.next() {
+                    return Result::Incomplete(_i.get_offset());
+                }
+            }
+        };
+        pfn()
+    }};
+
+    ($i:expr, $rule:ident) => {
+        consume_all!($i, run!($rule))
+    }
+}
+
+/// ascii_digit parses a single ascii alphabetic or digit character from an InputIter of bytes.
+#[inline(always)]
+pub fn ascii_alphanumeric<'a, I: InputIter<Item=&'a u8>>(mut i: I) -> Result<I, u8> {
+    match i.next() {
+        Some(b) => {
+            let c = *b as char;
+            if c.is_ascii_alphabetic() || c.is_ascii_digit() {
+                Result::Complete(i, *b)
+            } else {
+                Result::Fail(Error::new("Not an alphanumeric character".to_string(), &i))
+            }
+        },
+        None => Result::Fail(Error::new("Unexpected End Of Input.".to_string(), &i)),
+    }
+}
+
+/// ascii_digit parses a single ascii digit character from an InputIter of bytes.
+#[inline(always)]
+pub fn ascii_digit<'a, I: InputIter<Item = &'a u8>>(mut i: I) -> Result<I, u8> {
+    match i.next() {
+        Some(b) => {
+            if (*b as char).is_ascii_digit() {
+                Result::Complete(i, *b)
+            } else {
+                Result::Fail(Error::new("Not an digit character".to_string(), &i))
+            }
+        },
+        None => Result::Fail(Error::new("Unexpected End Of Input.".to_string(), &i)),
+    }
+}
+
+/// ascii_alpha parses a single ascii alphabet character from an InputIter of bytes.
+#[inline(always)]
+pub fn ascii_alpha<'a, I: InputIter<Item = &'a u8>>(mut i: I) -> Result<I, u8> {
+    match i.next() {
+        Some(b) => {
+            if (*b as char).is_ascii_alphabetic() {
+                Result::Complete(i, *b)
+            } else {
+                Result::Fail(Error::new("Not an alpha character".to_string(), &i))
+            }
+        },
+        None => Result::Fail(Error::new("Unexpected End Of Input.".to_string(), &i)),
+    }
+}
+
+// TODO(jwall): We need a helper to convert Optional into failures.
+// TODO(jwall): We need a helper to convert std::result::Result into failures.
