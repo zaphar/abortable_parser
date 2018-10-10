@@ -1,12 +1,12 @@
 [package]
-name = "abortable-parser"
+name = "abortable_parser"
 version = "0.1.0"
 authors = ["Jeremy Wall <jeremy@marzhillstudios.com>"]
 description = "A parser combinator library with an emphasis on error handling"
 repository = "https://github.com/zaphar/abortable_parser"
-documentation = "https://docs.rs/crate/abortable-parser"
+documentation = "https://docs.rs/crate/abortable_parser"
 readme = "README.md"
 license = "Apache-2.0"
-keywords = ["parsing"]
+keywords = ["parsing", "combinator"]
 
 [dependencies]

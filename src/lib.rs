@@ -12,13 +12,13 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-//! An opinionated parser combinator library with a focus on fully abortable parsing and error handling.
+//! An opinionated parser combinator library with a focus on fully abortable parsing and
+//! easy error handling.
 //!
-//! The approach to macro composition is heavily inspired by nom. However we emphasize error
-//! handling as a first class citizen. abortable_parser has the concept of an unrecoverable
-//! parsing error as distinct from a general failure to match.
+//! The approach to macro composition is heavily inspired by nom. It focuses on a simple
+//! API for combinators, and easy error handling.
 //!
-//! We have a numner of macros that assist in the gneration or handling of each type
+//! We have a number of macros that assist in the gneration or handling of each type
 //! of error.
 //!
 //! # Simple parsing of a url.

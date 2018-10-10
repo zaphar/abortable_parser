@@ -558,7 +558,7 @@ macro_rules! optional {
     }};
 }
 
-/// Runs a single matcher repeating 0 or mre times and returns a possibly empty
+/// Runs a single matcher repeating 0 or more times and returns a possibly empty
 /// vector of the parsed results.
 ///
 /// ```
@@ -618,6 +618,24 @@ macro_rules! repeat {
     };
 }
 
+/// Parses separated list of items.
+/// 
+/// ```
+/// # #[macro_use] extern crate abortable_parser;
+/// use abortable_parser::iter;
+/// # use abortable_parser::{Result, Offsetable};
+/// # fn main() {
+/// let input_str = "foo,foo";
+/// let iter = iter::SliceIter::new(input_str.as_bytes());
+/// let result = separated!(iter, text_token!(","), text_token!("foo"));
+/// # assert!(result.is_complete());
+/// if let Result::Complete(_, o) = result {
+///     assert_eq!(2, o.len());
+///     assert_eq!("foo", o[0]);
+///     assert_eq!("foo", o[1]);
+/// }
+/// # }
+/// ```
 #[macro_export]
 macro_rules! separated {
     ($i:expr, $sep_rule:ident!( $( $sep_args:tt )* ), $item_rule:ident!( $( $item_args:tt )* ) ) => {{
@@ -709,7 +727,8 @@ macro_rules! text_token {
     }};
 }
 
-/// Consumes an input until it reaches the term combinator matches.
+/// Consumes an input until it reaches a term that the contained rule matches.
+/// It does not consume the subrule.
 ///
 /// If the term never matches then returns incomplete.
 /// ```
