@@ -53,7 +53,7 @@ where
     I: InputIter<Item = C>,
     C: Debug + Display,
 {
-    Result::Fail(super::Error::new("AAAAHHH!!!".to_string(), &i))
+    Result::Fail(super::Error::new("AAAAHHH!!!".to_string(), Box::new(i.clone())))
 }
 
 fn parse_byte<'a, I>(mut i: I) -> Result<I, u8>
@@ -62,15 +62,15 @@ where
 {
     match i.next() {
         Some(b) => Result::Complete(i, *b),
-        None => Result::Incomplete(i.get_offset()),
+        None => Result::Incomplete(i.clone()),
     }
 }
 
-fn will_not_complete<'a, I>(_: I) -> Result<I, String>
+fn will_not_complete<'a, I>(i: I) -> Result<I, String>
 where
     I: InputIter<Item = &'a u8>,
 {
-    Result::Incomplete(0)
+    Result::Incomplete(i)
 }
 
 fn parse_three<'a, I>(i: I) -> Result<I, String>
@@ -90,7 +90,7 @@ where
         }
     }
     if out.len() != 3 {
-        Result::Incomplete(_i.get_offset())
+        Result::Incomplete(_i)
     } else {
         Result::Complete(_i, out)
     }

@@ -28,11 +28,11 @@ where
 {
     match result {
         Result::Complete(i, _) => Result::Fail(Error::new(
-            "Matched on input when we shouldn't have.".to_string(),
-            &i,
+            "Matched on input when we shouldn't have.",
+            Box::new(i.clone()),
         )),
         Result::Abort(e) => Result::Abort(e),
-        Result::Incomplete(offset) => Result::Incomplete(offset),
+        Result::Incomplete(ctx) => Result::Incomplete(ctx),
         Result::Fail(_) => Result::Complete(i, ()),
     }
 }
@@ -95,7 +95,7 @@ macro_rules! peek {
         let _i = $i.clone();
         match $f!(_i, $($args)*) {
             Result::Complete(_, o) => Result::Complete($i, o),
-            Result::Incomplete(offset) => Result::Incomplete(offset),
+            Result::Incomplete(ctx) => Result::Incomplete(ctx),
             Result::Abort(e) => Result::Abort(e),
             Result::Fail(e) => Result::Fail(e),
         }
@@ -129,7 +129,7 @@ where
 {
     match result {
         Result::Complete(i, o) => Result::Complete(i, o),
-        Result::Incomplete(offset) => Result::Incomplete(offset),
+        Result::Incomplete(ctx) => Result::Incomplete(ctx),
         Result::Fail(e) => Result::Abort(e),
         Result::Abort(e) => Result::Abort(e),
     }
@@ -174,9 +174,9 @@ macro_rules! wrap_err {
         let _i = $i.clone();
         match $f!($i, $($args)*) {
             $crate::Result::Complete(i, o) => $crate::Result::Complete(i, o),
-            $crate::Result::Incomplete(offset) => $crate::Result::Incomplete(offset),
-            $crate::Result::Fail(e) => $crate::Result::Fail($crate::Error::caused_by($e, &_i, Box::new(e))),
-            $crate::Result::Abort(e) => $crate::Result::Abort($crate::Error::caused_by($e, &_i, Box::new(e))),
+            $crate::Result::Incomplete(ctx) => $crate::Result::Incomplete(ctx),
+            $crate::Result::Fail(e) => $crate::Result::Fail($crate::Error::caused_by($e, Box::new(e), Box::new(_i.clone()))),
+            $crate::Result::Abort(e) => $crate::Result::Abort($crate::Error::caused_by($e, Box::new(e), Box::new(_i.clone()))),
         }
     }};
     
@@ -200,7 +200,7 @@ where
 {
     match result {
         Result::Complete(i, o) => Result::Complete(i, o),
-        Result::Incomplete(offset) => Result::Incomplete(offset),
+        Result::Incomplete(ctx) => Result::Incomplete(ctx),
         Result::Fail(e) => Result::Fail(e),
         Result::Abort(e) => Result::Fail(e),
     }
@@ -242,7 +242,7 @@ where
 {
     match result {
         Result::Complete(i, o) => Result::Complete(i, o),
-        Result::Incomplete(ref offset) => Result::Abort(Error::new(msg, offset)),
+        Result::Incomplete(ctx) => Result::Abort(Error::new(msg, Box::new(ctx))),
         Result::Fail(e) => Result::Abort(e),
         Result::Abort(e) => Result::Abort(e),
     }
@@ -255,7 +255,7 @@ where
     S: Into<String>,
 {
     match result {
-        Result::Incomplete(offset) => Result::Fail(Error::new(msg.into(), &offset)),
+        Result::Incomplete(ctx) => Result::Fail(Error::new(msg.into(), Box::new(ctx))),
         Result::Complete(i, o) => Result::Complete(i, o),
         Result::Fail(e) => Result::Fail(e),
         Result::Abort(e) => Result::Abort(e),
@@ -291,7 +291,7 @@ macro_rules! complete {
 #[macro_export]
 macro_rules! must_complete {
     ($i:expr, $e:expr, $f:ident!( $( $args:tt )* ) ) => {{
-        $crate::combinators::must_complete($f!($i, $($args)*), $e)
+        $crate::combinators::must_complete($f!($i.clone(), $($args)*), $e)
     }};
     
     ($i:expr, $efn:expr, $f:ident) => {
@@ -362,8 +362,8 @@ macro_rules! do_each {
                 let $val = o;
                 do_each!(i, $($rest)*)
             }
-            $crate::Result::Incomplete(offset) => {
-                Result::Incomplete(offset)
+            $crate::Result::Incomplete(ctx) => {
+                Result::Incomplete(ctx)
             }
             $crate::Result::Fail(e) => Result::Fail(e),
             $crate::Result::Abort(e) => Result::Abort(e),
@@ -376,8 +376,8 @@ macro_rules! do_each {
             $crate::Result::Complete(i, _) => {
                 do_each!(i, $($rest)*)
             }
-            $crate::Result::Incomplete(offset) => {
-                Result::Incomplete(offset)
+            $crate::Result::Incomplete(ctx) => {
+                Result::Incomplete(ctx)
             }
             $crate::Result::Fail(e) => Result::Fail(e),
             $crate::Result::Abort(e) => Result::Abort(e),
@@ -462,8 +462,8 @@ macro_rules! either {
                 Result::Complete(i, o)
             }
             // Incompletes may still be parseable.
-            $crate::Result::Incomplete(i) => {
-                Result::Incomplete(i)
+            $crate::Result::Incomplete(ctx) => {
+                Result::Incomplete(ctx)
             }
             // Fail means it didn't match so we are now done.
             $crate::Result::Fail(e) => {
@@ -483,8 +483,8 @@ macro_rules! either {
                 Result::Complete(i, o)
             }
             // Incompletes may still be parseable.
-            $crate::Result::Incomplete(i) => {
-                Result::Incomplete(i)
+            $crate::Result::Incomplete(ctx) => {
+                Result::Incomplete(ctx)
             }
             // Fail means it didn't match so continue to next one.
             $crate::Result::Fail(_) => {
@@ -516,7 +516,7 @@ where
     match result {
         Result::Complete(i, o) => Result::Complete(i, Some(o)),
         // Incomplete could still work possibly parse.
-        Result::Incomplete(i) => Result::Incomplete(i),
+        Result::Incomplete(ctx) => Result::Incomplete(ctx),
         // Fail just means it didn't match.
         Result::Fail(_) => Result::Complete(iter, None),
         // Aborts are hard failures that the parser can't recover from.
@@ -644,7 +644,7 @@ macro_rules! separated {
         // We require at least one item for our list
         let head =  $item_rule!($i.clone(), $($item_args)*);
         match head {
-            Result::Incomplete(offset) => Result::Incomplete(offset),
+            Result::Incomplete(ctx) => Result::Incomplete(ctx),
             Result::Fail(e) => Result::Fail(e),
             Result::Abort(e) => Result::Abort(e),
             Result::Complete(i,item) => {
@@ -659,7 +659,7 @@ macro_rules! separated {
                 );
                 match tail_result {
                     Result::Fail(e) => Result::Fail(e),
-                    Result::Incomplete(offset) => Result::Incomplete(offset),
+                    Result::Incomplete(ctx) => Result::Incomplete(ctx),
                     Result::Abort(e) => Result::Abort(e),
                     Result::Complete(i, mut tail) => {
                         list.extend(tail.drain(0..));
@@ -721,7 +721,7 @@ macro_rules! text_token {
         } else {
             Result::Fail(Error::new(
                 format!("Expected {} but didn't get it.", $e),
-                &$i,
+                Box::new($i.clone()),
             ))
         }
     }};
@@ -759,13 +759,13 @@ macro_rules! until {
                         return Result::Complete(_i, $i.span(range));
                     },
                     Result::Abort(e) => return Result::Abort(e),
-                    Result::Incomplete(offset) => return Result::Incomplete(offset),
+                    Result::Incomplete(ctx) => return Result::Incomplete(ctx),
                     Result::Fail(_) => {
                         // noop
                     }
                 }
                 if let None = _i.next() {
-                    return Result::Incomplete(_i.get_offset());
+                    return Result::Incomplete(_i.clone());
                 }
             }
         };
@@ -789,7 +789,7 @@ macro_rules! discard {
         use $crate::Result;
         match $rule!($i, $($args)*) {
             Result::Complete(i, _) => Result::Complete(i, ()),
-            Result::Incomplete(offset) => Result::Incomplete(offset),
+            Result::Incomplete(ctx) => Result::Incomplete(ctx),
             Result::Fail(e) => Result::Fail(e),
             Result::Abort(e) => Result::Abort(e),
         }
@@ -803,10 +803,10 @@ pub fn ascii_ws<'a, I: InputIter<Item = &'a u8>>(mut i: I) -> Result<I, u8> {
             if (*b as char).is_whitespace() {
                 Result::Complete(i, *b)
             } else {
-                Result::Fail(Error::new("Not whitespace".to_string(), &i))
+                Result::Fail(Error::new("Not whitespace".to_string(), Box::new(i.clone())))
             }
         },
-        None => Result::Fail(Error::new("Unexpected End Of Input".to_string(), &i)),
+        None => Result::Fail(Error::new("Unexpected End Of Input".to_string(), Box::new(i.clone()))),
     }
 }
 
@@ -815,7 +815,7 @@ pub fn ascii_ws<'a, I: InputIter<Item = &'a u8>>(mut i: I) -> Result<I, u8> {
 pub fn eoi<I: InputIter>(i: I) -> Result<I, ()> {
     let mut _i = i.clone();
     match _i.next() {
-        Some(_) => Result::Fail(Error::new("Expected End Of Input".to_string(), &i)),
+        Some(_) => Result::Fail(Error::new("Expected End Of Input".to_string(), Box::new(i.clone()))),
         None => Result::Complete(i, ()),
     }
 }
@@ -911,14 +911,14 @@ macro_rules! consume_all {
                         // noop
                     },
                     Result::Abort(e) => return Result::Abort(e),
-                    Result::Incomplete(offset) => return Result::Incomplete(offset),
+                    Result::Incomplete(ctx) => return Result::Incomplete(ctx),
                     Result::Fail(_) => {
                         let range = SpanRange::Range(start_offset.._i.get_offset());
                         return Result::Complete(_i, $i.span(range));
                     }
                 }
                 if let None = _i.next() {
-                    return Result::Incomplete(_i.get_offset());
+                    return Result::Incomplete(_i.clone());
                 }
             }
         };
@@ -939,10 +939,10 @@ pub fn ascii_alphanumeric<'a, I: InputIter<Item=&'a u8>>(mut i: I) -> Result<I, 
             if c.is_ascii_alphabetic() || c.is_ascii_digit() {
                 Result::Complete(i, *b)
             } else {
-                Result::Fail(Error::new("Not an alphanumeric character".to_string(), &i))
+                Result::Fail(Error::new("Not an alphanumeric character".to_string(), Box::new(i.clone())))
             }
         },
-        None => Result::Fail(Error::new("Unexpected End Of Input.".to_string(), &i)),
+        None => Result::Fail(Error::new("Unexpected End Of Input.".to_string(), Box::new(i.clone()))),
     }
 }
 
@@ -954,10 +954,10 @@ pub fn ascii_digit<'a, I: InputIter<Item = &'a u8>>(mut i: I) -> Result<I, u8> {
             if (*b as char).is_ascii_digit() {
                 Result::Complete(i, *b)
             } else {
-                Result::Fail(Error::new("Not an digit character".to_string(), &i))
+                Result::Fail(Error::new("Not an digit character".to_string(), Box::new(i.clone())))
             }
         },
-        None => Result::Fail(Error::new("Unexpected End Of Input.".to_string(), &i)),
+        None => Result::Fail(Error::new("Unexpected End Of Input.".to_string(), Box::new(i.clone()))),
     }
 }
 
@@ -969,10 +969,10 @@ pub fn ascii_alpha<'a, I: InputIter<Item = &'a u8>>(mut i: I) -> Result<I, u8> {
             if (*b as char).is_ascii_alphabetic() {
                 Result::Complete(i, *b)
             } else {
-                Result::Fail(Error::new("Not an alpha character".to_string(), &i))
+                Result::Fail(Error::new("Not an alpha character".to_string(), Box::new(i.clone())))
             }
         },
-        None => Result::Fail(Error::new("Unexpected End Of Input.".to_string(), &i)),
+        None => Result::Fail(Error::new("Unexpected End Of Input.".to_string(), Box::new(i.clone()))),
     }
 }
 
