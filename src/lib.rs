@@ -102,7 +102,7 @@
 //! assert!(bad_result.is_abort());
 //! # }
 //! ```
-use std::fmt::{Display,Debug};
+use std::fmt::{Debug, Display};
 use std::iter::Iterator;
 use std::result;
 
@@ -121,8 +121,8 @@ pub trait Seekable {
     fn seek(&mut self, usize) -> usize;
 }
 
-/// Trait for Inputs that can track lines and columns in a text input.
-pub trait TextPositionTracker {
+/// Trait for Inputs that can report current lines and columns in a text input.
+pub trait Positioned {
     fn line(&self) -> usize;
     fn column(&self) -> usize;
 }
@@ -150,20 +150,16 @@ pub trait InputIter: Iterator + Clone + Offsetable {}
 /// The custom error type for use in `Result::{Fail, Abort}`.
 /// Stores a wrapped err that must implement Display as well as an offset and
 /// an optional cause.
-#[derive(Debug,Clone)]
-pub struct Error<C>
-where
-    C: InputIter,
-{
+#[derive(Debug, Clone)]
+pub struct Error<C> {
     msg: String,
     cause: Option<Box<Error<C>>>,
     context: Box<C>,
 }
 
-impl<C: InputIter> Error<C> {
+impl<C> Error<C> {
     /// Constructs a new Error with an offset and no cause.
-    pub fn new<D: Into<String>>(msg: D, ctx: Box<C>) -> Self
-    {
+    pub fn new<D: Into<String>>(msg: D, ctx: Box<C>) -> Self {
         Error {
             msg: msg.into(),
             cause: None,
@@ -172,8 +168,7 @@ impl<C: InputIter> Error<C> {
     }
 
     /// Constructs a new Error with an offset and a cause.
-    pub fn caused_by<'a, D: Into<String>>(msg: D, cause: Box<Self>, ctx: Box<C>) -> Self
-    {
+    pub fn caused_by<'a, D: Into<String>>(msg: D, cause: Box<Self>, ctx: Box<C>) -> Self {
         Error {
             msg: msg.into(),
             cause: Some(cause),
@@ -182,32 +177,31 @@ impl<C: InputIter> Error<C> {
     }
 
     /// Returns the msg.
-    pub fn get_msg<'a>(&'a self) -> String {
-        format!("{}", &self.msg)
+    pub fn get_msg<'a>(&'a self) -> &str {
+        &self.msg
     }
 
     /// Returns `Some(cause)` if there is one, None otherwise.
     pub fn get_cause<'a>(&'a self) -> Option<&'a Error<C>> {
         match self.cause {
             Some(ref e) => Some(e),
-            None => None
+            None => None,
         }
     }
 
-    // Returns the offset at which this Error happened.
-    pub fn get_offset(&self) -> usize {
-        self.context.get_offset()
-    }
-
-    pub fn get_context(&self) -> &C 
-    where
-        C: InputIter,
-    {
+    pub fn get_context(&self) -> &C {
         self.context.as_ref()
     }
 }
 
-impl<C: InputIter> Display for Error<C> {
+impl<C: Offsetable> Offsetable for Error<C> {
+    // Returns the offset at which this Error happened.
+    fn get_offset(&self) -> usize {
+        self.context.get_offset()
+    }
+}
+
+impl<C: Offsetable> Display for Error<C> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> result::Result<(), std::fmt::Error> {
         try!(write!(f, "{}", self.msg));
         match self.cause {
@@ -217,12 +211,11 @@ impl<C: InputIter> Display for Error<C> {
     }
 }
 
-impl<C: InputIter + Debug> std::error::Error for Error<C> {}
+impl<C: Offsetable + Debug> std::error::Error for Error<C> {}
 
 /// The result of a parsing attempt.
 #[derive(Debug)]
-pub enum Result<I: InputIter, O>
-{
+pub enum Result<I: InputIter, O> {
     /// Complete represents a successful match.
     Complete(I, O),
     /// Incomplete indicates input ended before a match could be completed.
@@ -234,8 +227,7 @@ pub enum Result<I: InputIter, O>
     Abort(Error<I>),
 }
 
-impl<I: InputIter, O> Result<I, O>
-{
+impl<I: InputIter, O> Result<I, O> {
     /// Returns true if the Result is Complete.
     pub fn is_complete(&self) -> bool {
         if let &Result::Complete(_, _) = self {

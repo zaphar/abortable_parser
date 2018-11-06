@@ -16,7 +16,7 @@
 use std::fmt::Debug;
 use std::iter::Iterator;
 
-use super::{InputIter, Offsetable, Seekable, Span, SpanRange, TextPositionTracker};
+use super::{InputIter, Offsetable, Positioned, Seekable, Span, SpanRange};
 
 /// Implements `InputIter` for any slice of T.
 #[derive(Debug)]
@@ -52,6 +52,25 @@ impl<'a, T: Debug + 'a> Iterator for SliceIter<'a, T> {
 impl<'a, T: Debug + 'a> Offsetable for SliceIter<'a, T> {
     fn get_offset(&self) -> usize {
         self.offset
+    }
+}
+
+impl<'a, It> Positioned for SliceIter<'a, It>
+where
+    It: Positioned + Debug,
+{
+    fn line(&self) -> usize {
+        match self.peek_next() {
+            Some(i) => i.line(),
+            None => 0,
+        }
+    }
+
+    fn column(&self) -> usize {
+        match self.peek_next() {
+            Some(i) => i.column(),
+            None => 0,
+        }
     }
 }
 
@@ -149,7 +168,7 @@ impl<'a> Offsetable for StrIter<'a> {
     }
 }
 
-impl<'a> TextPositionTracker for StrIter<'a> {
+impl<'a> Positioned for StrIter<'a> {
     fn line(&self) -> usize {
         self.line
     }
@@ -194,11 +213,7 @@ impl<'a> Span<&'a str> for StrIter<'a> {
 impl<'a> Seekable for StrIter<'a> {
     fn seek(&mut self, to: usize) -> usize {
         let self_len = self.source.len();
-        let offset = if self_len > to {
-            to
-        } else {
-            self_len
-        };
+        let offset = if self_len > to { to } else { self_len };
         self.offset = offset;
         self.offset
     }

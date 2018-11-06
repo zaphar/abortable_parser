@@ -14,7 +14,7 @@
 
 use std::fmt::{Debug, Display};
 
-use super::{InputIter, Offsetable, Result, TextPositionTracker};
+use super::{InputIter, Offsetable, Positioned, Result};
 use combinators::*;
 use iter::{SliceIter, StrIter};
 
@@ -53,7 +53,10 @@ where
     I: InputIter<Item = C>,
     C: Debug + Display,
 {
-    Result::Fail(super::Error::new("AAAAHHH!!!".to_string(), Box::new(i.clone())))
+    Result::Fail(super::Error::new(
+        "AAAAHHH!!!".to_string(),
+        Box::new(i.clone()),
+    ))
 }
 
 fn parse_byte<'a, I>(mut i: I) -> Result<I, u8>
@@ -574,7 +577,7 @@ fn test_ascii_alphanumeric() {
     let iter = StrIter::new(input_str);
     let result = repeat!(iter, ascii_alphanumeric);
     assert!(result.is_complete());
-    if let Result::Complete(i,list) = result {
+    if let Result::Complete(i, list) = result {
         assert_eq!(list.len(), 2);
         assert_eq!(list[0], b'a');
         assert_eq!(list[1], b'1');
@@ -596,7 +599,7 @@ fn test_ascii_digit() {
     let iter = StrIter::new(input_str);
     let result = repeat!(iter, ascii_digit);
     assert!(result.is_complete());
-    if let Result::Complete(i,list) = result {
+    if let Result::Complete(i, list) = result {
         assert_eq!(list.len(), 2);
         assert_eq!(list[0], b'1');
         assert_eq!(list[1], b'2');
@@ -618,7 +621,7 @@ fn test_ascii_alpha() {
     let iter = StrIter::new(input_str);
     let result = repeat!(iter, ascii_alpha);
     assert!(result.is_complete());
-    if let Result::Complete(i,list) = result {
+    if let Result::Complete(i, list) = result {
         assert_eq!(list.len(), 2);
         assert_eq!(list[0], b'a');
         assert_eq!(list[1], b'b');

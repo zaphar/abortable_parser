@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 use super::{ascii_ws, eoi, Result};
-use iter::{StrIter, SliceIter};
+use iter::{SliceIter, StrIter};
 
 make_fn!(proto<StrIter, &str>,
      do_each!(
@@ -33,7 +33,8 @@ make_fn!(path<StrIter, &str>,
       until!(either!(discard!(ascii_ws), eoi))
  );
 
-make_fn!(sliceit<SliceIter<u8>, ()>,
+make_fn!(
+    sliceit<SliceIter<u8>, ()>,
     do_each!(
         _ => input!(),
         end_of_input => eoi,
@@ -41,7 +42,8 @@ make_fn!(sliceit<SliceIter<u8>, ()>,
     )
 );
 
-make_fn!(long_string_path<SliceIter<u8>, ()>,
+make_fn!(
+    long_string_path<SliceIter<u8>, ()>,
     do_each!(
         _ => input!(),
         end_of_input => eoi,
