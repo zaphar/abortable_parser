@@ -166,6 +166,28 @@ macro_rules! must {
     };
 }
 
+#[macro_export]
+/// Replaces the the sub error in a Fail case with one of your own errors.
+macro_rules! with_err {
+    ($i:expr, $f:ident!( $( $args:tt )* ), $e:expr) => {{
+        let _i = $i.clone();
+        match $f!($i, $($args)*) {
+            $crate::Result::Complete(i, o) => $crate::Result::Complete(i, o),
+            $crate::Result::Incomplete(ctx) => $crate::Result::Incomplete(ctx),
+            $crate::Result::Fail(e) => $crate::Result::Fail($crate::Error::new($e, Box::new(_i.clone()))),
+            $crate::Result::Abort(e) => $crate::Result::Abort($crate::Error::new($e, Box::new(_i.clone()))),
+        }
+    }};
+
+    ($i:expr, $f:ident( $( $args:tt )* ), $e:expr ) => {
+        with_err!($i, run!($f($($args)*)), $e:expr)
+    };
+
+    ($i:expr, $f:ident, $e:expr) => {
+        with_err!($i, run!($f), $e)
+    };
+}
+
 /// Wraps any Error return from a subparser in another error. Stores the position at
 /// this point in the parse tree allowing you to associate context with wrapped errors.
 #[macro_export]
