@@ -30,8 +30,10 @@ fn test_slice_iter() {
             None => break,
             Some(b) => b,
         };
+        assert_eq!(*b as char, *iter.curr() as char);
         out.push(b.clone());
     }
+    assert_eq!(*iter.curr(), 'o' as u8);
     assert_eq!(3, out.len());
     assert_eq!('f' as u8, out[0]);
     assert_eq!('o' as u8, out[1]);

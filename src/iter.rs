@@ -83,7 +83,19 @@ impl<'a, T: Debug + 'a> Clone for SliceIter<'a, T> {
     }
 }
 
-impl<'a, T: Debug + 'a> InputIter for SliceIter<'a, T> {}
+impl<'a, T: Debug + 'a> InputIter for SliceIter<'a, T> {
+    fn curr(&self) -> Self::Item {
+        if self.offset >= self.source.len() {
+            self.source.get(self.source.len() - 1).unwrap()
+        } else {
+            if self.offset == 0 {
+                self.source.get(self.offset).unwrap()
+            } else {
+                self.source.get(self.offset - 1).unwrap()
+            }
+        }
+    }
+}
 
 impl<'a, T: Debug + 'a> Span<&'a [T]> for SliceIter<'a, T> {
     fn span(&self, idx: SpanRange) -> &'a [T] {
@@ -189,7 +201,19 @@ impl<'a> Clone for StrIter<'a> {
     }
 }
 
-impl<'a> InputIter for StrIter<'a> {}
+impl<'a> InputIter for StrIter<'a> {
+    fn curr(&self) -> Self::Item {
+        if self.offset >= self.source.len() {
+            self.source.as_bytes().get(self.source.len() - 1).unwrap()
+        } else {
+            if self.offset == 0 {
+                self.source.as_bytes().get(self.offset).unwrap()
+            } else {
+                self.source.as_bytes().get(self.offset - 1).unwrap()
+            }
+        }
+    }
+}
 
 impl<'a> From<&'a str> for StrIter<'a> {
     fn from(source: &'a str) -> Self {

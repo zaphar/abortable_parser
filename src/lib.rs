@@ -145,7 +145,9 @@ pub trait Peekable<O> {
 }
 
 /// A Cloneable Iterator that can report an offset as a count of processed Items.
-pub trait InputIter: Iterator + Clone + Offsetable {}
+pub trait InputIter: Iterator + Clone + Offsetable {
+    fn curr(&self) -> Self::Item;
+}
 
 /// The custom error type for use in `Result::{Fail, Abort}`.
 /// Stores a wrapped err that must implement Display as well as an offset and
