@@ -118,7 +118,7 @@ impl Offsetable for usize {
 }
 
 pub trait Seekable {
-    fn seek(&mut self, usize) -> usize;
+    fn seek(&mut self, u: usize) -> usize;
 }
 
 /// Trait for Inputs that can report current lines and columns in a text input.
@@ -205,7 +205,7 @@ impl<C: Offsetable> Offsetable for Error<C> {
 
 impl<C: Offsetable> Display for Error<C> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> result::Result<(), std::fmt::Error> {
-        try!(write!(f, "{}", self.msg));
+        write!(f, "{}", self.msg)?;
         match self.cause {
             Some(ref c) => write!(f, "\n\tCaused By:{}", c),
             None => Ok(()),

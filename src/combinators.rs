@@ -63,11 +63,11 @@ macro_rules! not {
     }};
 
     ($i:expr, $f:ident( $( $args:tt )* ) ) => {
-        not!($i, run!($f($($args)*)))
+        $crate::not!($i, run!($f($($args)*)))
     };
 
     ($i:expr, $f:ident) => {
-        not!($i, run!($f))
+        $crate::not!($i, run!($f))
     };
 }
 
@@ -102,11 +102,11 @@ macro_rules! peek {
     }};
 
     ($i:expr, $f:ident( $( $args:tt )* ) ) => {
-        peek!($i, run!($f($($args)*)))
+        $crate::peek!($i, run!($f($($args)*)))
     };
 
     ($i:expr, $f:ident) => {
-        peek!($i, run!($f))
+        $crate::peek!($i, run!($f))
     };
 }
 
@@ -161,9 +161,10 @@ macro_rules! must {
         $crate::combinators::must($f!($i, $($args)*))
     };
 
-    ($i:expr, $f:ident) => {
-        must!($i, run!($f))
-    };
+    ($i:expr, $f:ident) => {{
+        use $crate::run;
+        $crate::must!($i, run!($f))
+    }};
 }
 
 #[macro_export]
@@ -180,11 +181,11 @@ macro_rules! with_err {
     }};
 
     ($i:expr, $f:ident( $( $args:tt )* ), $e:expr ) => {
-        with_err!($i, run!($f($($args)*)), $e:expr)
+        $crate::with_err!($i, run!($f($($args)*)), $e:expr)
     };
 
     ($i:expr, $f:ident, $e:expr) => {
-        with_err!($i, run!($f), $e)
+        $crate::with_err!($i, run!($f), $e)
     };
 }
 
@@ -202,13 +203,15 @@ macro_rules! wrap_err {
         }
     }};
 
-    ($i:expr, $f:ident( $( $args:tt )* ), $e:expr ) => {
-        wrap_err!($i, run!($f($($args)*)), $e:expr)
-    };
+    ($i:expr, $f:ident( $( $args:tt )* ), $e:expr ) => {{
+        use $crate::run;
+        $crate::wrap_err!($i, run!($f($($args)*)), $e:expr)
+    }};
 
-    ($i:expr, $f:ident, $e:expr) => {
-        wrap_err!($i, run!($f), $e)
-    };
+    ($i:expr, $f:ident, $e:expr) => {{
+        use $crate::run;
+        $crate::wrap_err!($i, run!($f), $e)
+    }};
 }
 
 /// Traps a `Result::Abort` and converts it into a `Result::Fail`.
@@ -248,9 +251,10 @@ macro_rules! trap {
         $crate::combinators::trap($f!($i, $($args)*))
     };
 
-    ($i:expr, $f:ident) => {
-        trap!($i, run!($f))
-    };
+    ($i:expr, $f:ident) => {{
+        use $crate::run;
+        $crate::trap!($i, run!($f))
+    }};
 }
 
 /// Turns `Result::Fail` or `Result::Incomplete` into `Result::Abort`.
@@ -292,7 +296,7 @@ macro_rules! complete {
     };
 
     ($i:expr, $efn:expr, $f:ident) => {
-        complete!($i, $efn, run!($f))
+        $crate::complete!($i, $efn, $crate::run!($f))
     };
 }
 
@@ -316,9 +320,10 @@ macro_rules! must_complete {
         $crate::combinators::must_complete($f!($i.clone(), $($args)*), $e)
     }};
 
-    ($i:expr, $efn:expr, $f:ident) => {
-        must_complete!($i, $efn, run!($f))
-    };
+    ($i:expr, $efn:expr, $f:ident) => {{
+        use $crate::run;
+        $crate::must_complete!($i, $efn, run!($f))
+    }};
 }
 
 /// Captures a sequence of sub parsers output.
@@ -374,7 +379,7 @@ macro_rules! must_complete {
 macro_rules! do_each {
     ($i:expr, $val:ident => $f:ident) => {
         // This is a compile failure.
-        compile_error!("do_each! must end with a tuple capturing the results")
+        $crate::compile_error!("do_each! must end with a tuple capturing the results")
     };
 
     ($i:expr, $val:ident => $f:ident!($( $args:tt )* ), $($rest:tt)* ) => {
@@ -382,13 +387,13 @@ macro_rules! do_each {
         match $f!($i, $($args)*) {
             $crate::Result::Complete(i, o) => {
                 let $val = o;
-                do_each!(i, $($rest)*)
+                $crate::do_each!(i, $($rest)*)
             }
             $crate::Result::Incomplete(ctx) => {
-                Result::Incomplete(ctx)
+                $crate::Result::Incomplete(ctx)
             }
-            $crate::Result::Fail(e) => Result::Fail(e),
-            $crate::Result::Abort(e) => Result::Abort(e),
+            $crate::Result::Fail(e) => $crate::Result::Fail(e),
+            $crate::Result::Abort(e) => $crate::Result::Abort(e),
         }
     };
 
@@ -396,29 +401,31 @@ macro_rules! do_each {
         // If any single one of these matchers fails then all of them are failures.
         match $f!($i, $($args)*) {
             $crate::Result::Complete(i, _) => {
-                do_each!(i, $($rest)*)
+                $crate::do_each!(i, $($rest)*)
             }
             $crate::Result::Incomplete(ctx) => {
-                Result::Incomplete(ctx)
+                $crate::Result::Incomplete(ctx)
             }
-            $crate::Result::Fail(e) => Result::Fail(e),
-            $crate::Result::Abort(e) => Result::Abort(e),
+            $crate::Result::Fail(e) => $crate::Result::Fail(e),
+            $crate::Result::Abort(e) => $crate::Result::Abort(e),
         }
     };
 
-    ($i:expr, $val:ident => $f:ident, $($rest:tt)* ) => {
+    ($i:expr, $val:ident => $f:ident, $($rest:tt)* ) => {{
+        use $crate::run;
         // If any single one of these matchers fails then all of them are failures.
-        do_each!($i, $val => run!($f), $( $rest )* )
-    };
+        $crate::do_each!($i, $val => run!($f), $( $rest )* )
+    }};
 
-    ($i:expr, _ => $f:ident, $($rest:tt)* ) => {
+    ($i:expr, _ => $f:ident, $($rest:tt)* ) => {{
+        use $crate::run;
         // If any single one of these matchers fails then all of them are failures.
-        do_each!($i, _ => run!($f), $( $rest )* )
-    };
+        $crate::do_each!($i, _ => run!($f), $( $rest )* )
+    }};
 
     // Our Terminal condition
     ($i:expr, ( $($rest:tt)* ) ) => {
-        Result::Complete($i, ($($rest)*))
+        $crate::Result::Complete($i, ($($rest)*))
     };
 }
 
@@ -447,29 +454,33 @@ macro_rules! either {
     };
 
     // Initialization case.
-    ($i:expr, $f:ident, $($rest:tt)* ) => { // 1
+    ($i:expr, $f:ident, $($rest:tt)* ) => {{ // 1
+        use $crate::run;
         either!(__impl $i, run!($f), $($rest)*)
-    };
+    }};
 
     // Initialization failure case.
     ($i:expr, $f:ident!( $( $args:tt )* )) => { // 2
-        compile_error!("Either requires at least two sub matchers.")
+        $crate::compile_error!("Either requires at least two sub matchers.")
     };
 
     // Initialization failure case.
-    ($i:expr, $f:ident) => { // 3
+    ($i:expr, $f:ident) => {{ // 3
+        use $crate::run;
         either!($i, run!($f))
-    };
+    }};
 
     // Termination clause
-    (__impl $i:expr, $f:ident) => { // 4
+    (__impl $i:expr, $f:ident) => {{ // 4
+        use $crate::run;
         either!(__impl $i, run!($f))
-    };
+    }};
 
     // Termination clause
-    (__impl $i:expr, $f:ident,) => { // 5
+    (__impl $i:expr, $f:ident,) => {{ // 5
+        use $crate::run;
         either!(__impl $i, run!($f))
-    };
+    }};
 
     // Termination clause
     (__impl $i:expr, $f:ident!( $( $args:tt )* ),) => { // 6
@@ -478,49 +489,52 @@ macro_rules! either {
 
     // Termination clause
     (__impl $i:expr, $f:ident!( $( $args:tt )* )) => {{ // 7
+        use $crate::Result;
         match $f!($i, $($args)*) {
             // The first one to match is our result.
-            $crate::Result::Complete(i, o) => {
+            Result::Complete(i, o) => {
                 Result::Complete(i, o)
             }
             // Incompletes may still be parseable.
-            $crate::Result::Incomplete(ctx) => {
+            Result::Incomplete(ctx) => {
                 Result::Incomplete(ctx)
             }
             // Fail means it didn't match so we are now done.
-            $crate::Result::Fail(e) => {
-                $crate::Result::Fail(e)
+            Result::Fail(e) => {
+                Result::Fail(e)
             },
             // Aborts are hard failures that the parser can't recover from.
-            $crate::Result::Abort(e) => Result::Abort(e),
+            Result::Abort(e) => Result::Abort(e),
         }
     }};
 
     // Internal Loop Implementation
     (__impl $i:expr, $f:ident!( $( $args:tt )* ), $( $rest:tt )* ) => {{ // 8
+        use $crate::Result;
         let _i = $i.clone();
         match $f!($i, $($args)*) {
             // The first one to match is our result.
-            $crate::Result::Complete(i, o) => {
+            Result::Complete(i, o) => {
                 Result::Complete(i, o)
             }
             // Incompletes may still be parseable.
-            $crate::Result::Incomplete(ctx) => {
+            Result::Incomplete(ctx) => {
                 Result::Incomplete(ctx)
             }
             // Fail means it didn't match so continue to next one.
-            $crate::Result::Fail(_) => {
+            Result::Fail(_) => {
                 either!(__impl _i, $($rest)*)
             },
             // Aborts are hard failures that the parser can't recover from.
-            $crate::Result::Abort(e) => Result::Abort(e),
+            Result::Abort(e) => Result::Abort(e),
         }
     }};
 
     // Internal Loop Implementation
-    (__impl $i:expr, $f:ident, $( $rest:tt )* ) => { // 9
+    (__impl $i:expr, $f:ident, $( $rest:tt )* ) => {{ // 9
+        use $crate::run;
         either!(__impl $i, run!($f), $( $rest )* )
-    }
+    }}
 }
 
 /// Maps a `Result` to be optional.
@@ -566,9 +580,10 @@ where
 /// # }
 #[macro_export]
 macro_rules! optional {
-    ($i:expr, $f:ident) => {
+    ($i:expr, $f:ident) => {{
+        use $crate::run;
         optional!(__impl $i, run!($f))
-    };
+    }};
 
     ($i:expr, $f:ident!( $( $args:tt )* ) ) => {
         optional!(__impl $i, $f!( $( $args )* ))
@@ -602,28 +617,29 @@ macro_rules! optional {
 #[macro_export]
 macro_rules! repeat {
     ($i:expr, $f:ident!( $( $args:tt )* ) ) => {{
+        use $crate::Result;
         let mut _i = $i.clone();
         let mut seq = Vec::new();
         let mut opt_error = None;
         loop {
             let __i = _i.clone();
             match $f!(_i, $($args)*) {
-                $crate::Result::Complete(i, o) => {
+                Result::Complete(i, o) => {
                     seq.push(o);
                     _i = i;
                 }
                 // Aborts are always a hard fail.
-                $crate::Result::Abort(e) => {
-                    opt_error = Some($crate::Result::Abort(e));
+                Result::Abort(e) => {
+                    opt_error = Some(Result::Abort(e));
                     _i = $i.clone();
                     break;
                 }
                 // Everything else just means we are finished parsing.
-                $crate::Result::Incomplete(_) => {
+                Result::Incomplete(_) => {
                     _i = __i;
                     break;
                 }
-                $crate::Result::Fail(_) => {
+                Result::Fail(_) => {
                     _i = __i;
                     break;
                 }
@@ -631,13 +647,14 @@ macro_rules! repeat {
         }
         match opt_error {
             Some(e) => e,
-            None => $crate::Result::Complete(_i, seq),
+            None => Result::Complete(_i, seq),
         }
     }};
 
-    ($i:expr, $f:ident) => {
+    ($i:expr, $f:ident) => {{
+        use $crate::run;
         repeat!($i, run!($f))
-    };
+    }};
 }
 
 /// Parses separated list of items.
@@ -693,15 +710,15 @@ macro_rules! separated {
     }};
 
     ($i:expr, $sep_rule:ident, $item_rule:ident ) => {
-        separated!($i, run!($sep_rule), run!($item_rule))
+        separated!($i, $crate::run!($sep_rule), $crate::run!($item_rule))
     };
 
     ($i:expr, $sep_rule:ident!( $( $args:tt )* ), $item_rule:ident ) => {
-        separated!($i, $sep_rule!($($args)*), run!($item_rule))
+        separated!($i, $sep_rule!($($args)*), $crate::run!($item_rule))
     };
 
     ($i:expr, $sep_rule:ident, $item_rule:ident!( $( $args:tt )* ) ) => {
-        separated!($i, run!($sep_rule), $item_rule!($($args)*))
+        separated!($i, $crate::run!($sep_rule), $item_rule!($($args)*))
     };
 }
 
@@ -795,7 +812,7 @@ macro_rules! until {
     }};
 
     ($i:expr, $rule:ident) => {
-        until!($i, run!($rule))
+        until!($i, $crate::run!($rule))
     };
 }
 
@@ -803,9 +820,10 @@ macro_rules! until {
 /// Leaves Failures, Aborts, and Incompletes untouched.
 #[macro_export]
 macro_rules! discard {
-    ($i:expr, $rule:ident) => {
+    ($i:expr, $rule:ident) => {{
+        use $crate::run;
         discard!($i, run!($rule))
-    };
+    }};
 
     ($i:expr, $rule:ident!( $( $args:tt )* ) ) => {{
         use $crate::Result;
@@ -886,11 +904,11 @@ macro_rules! make_fn {
     };
 
     ($name:ident<$i:ty, $o:ty>, $rule:ident) => {
-        make_fn!($name<$i, $o>, run!($rule));
+        make_fn!($name<$i, $o>, $crate::run!($rule));
     };
 
     (pub $name:ident<$i:ty, $o:ty>, $rule:ident) => {
-        make_fn!(pub $name<$i, $o>, run!($rule));
+        make_fn!(pub $name<$i, $o>, $crate::run!($rule));
     };
 }
 
@@ -956,9 +974,10 @@ macro_rules! consume_all {
         pfn()
     }};
 
-    ($i:expr, $rule:ident) => {
+    ($i:expr, $rule:ident) => {{
+        use $crate::run;
         consume_all!($i, run!($rule))
-    }
+    }}
 }
 
 /// ascii_digit parses a single ascii alphabetic or digit character from an InputIter of bytes.

@@ -14,9 +14,11 @@
 
 use std::fmt::{Debug, Display};
 
-use super::{InputIter, Offsetable, Positioned, Result};
-use combinators::*;
-use iter::{SliceIter, StrIter};
+use super::combinators::*;
+use super::{
+    iter::{SliceIter, StrIter},
+    InputIter, Offsetable, Positioned, Result,
+};
 
 #[test]
 fn test_slice_iter() {
