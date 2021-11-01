@@ -1,6 +1,6 @@
 [package]
 name = "abortable_parser"
-version = "0.2.4"
+version = "0.2.5"
 authors = ["Jeremy Wall <jeremy@marzhillstudios.com>"]
 description = "A parser combinator library with an emphasis on error handling"
 repository = "https://github.com/zaphar/abortable_parser"

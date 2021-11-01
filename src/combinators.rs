@@ -63,12 +63,14 @@ macro_rules! not {
     }};
 
     ($i:expr, $f:ident( $( $args:tt )* ) ) => {
+        use $crate::run
         $crate::not!($i, run!($f($($args)*)))
     };
 
-    ($i:expr, $f:ident) => {
+    ($i:expr, $f:ident) => {{
+        use $crate::run;
         $crate::not!($i, run!($f))
-    };
+    }};
 }
 
 /// Checks the given matcher without consuming the input.
@@ -180,13 +182,15 @@ macro_rules! with_err {
         }
     }};
 
-    ($i:expr, $f:ident( $( $args:tt )* ), $e:expr ) => {
+    ($i:expr, $f:ident( $( $args:tt )* ), $e:expr ) => {{
+        use $crate::run;
         $crate::with_err!($i, run!($f($($args)*)), $e:expr)
-    };
+    }};
 
-    ($i:expr, $f:ident, $e:expr) => {
+    ($i:expr, $f:ident, $e:expr) => {{
+        use $crate::run;
         $crate::with_err!($i, run!($f), $e)
-    };
+    }};
 }
 
 /// Wraps any Error return from a subparser in another error. Stores the position at
@@ -296,7 +300,8 @@ macro_rules! complete {
     };
 
     ($i:expr, $efn:expr, $f:ident) => {
-        $crate::complete!($i, $efn, $crate::run!($f))
+        use $crate::run
+        $crate::complete!($i, $efn, run!($f))
     };
 }
 
@@ -450,13 +455,13 @@ macro_rules! do_each {
 macro_rules! either {
     // Initialization case.
     ($i:expr, $f:ident!( $( $args:tt )* ), $( $rest:tt)* ) => { // 0
-        either!(__impl $i, $f!( $($args)* ), $($rest)*)
+        $crate::either!(__impl $i, $f!( $($args)* ), $($rest)*)
     };
 
     // Initialization case.
     ($i:expr, $f:ident, $($rest:tt)* ) => {{ // 1
         use $crate::run;
-        either!(__impl $i, run!($f), $($rest)*)
+        $crate::either!(__impl $i, run!($f), $($rest)*)
     }};
 
     // Initialization failure case.
@@ -467,24 +472,24 @@ macro_rules! either {
     // Initialization failure case.
     ($i:expr, $f:ident) => {{ // 3
         use $crate::run;
-        either!($i, run!($f))
+        $crate::either!($i, run!($f))
     }};
 
     // Termination clause
     (__impl $i:expr, $f:ident) => {{ // 4
         use $crate::run;
-        either!(__impl $i, run!($f))
+        $crate::either!(__impl $i, run!($f))
     }};
 
     // Termination clause
     (__impl $i:expr, $f:ident,) => {{ // 5
         use $crate::run;
-        either!(__impl $i, run!($f))
+        $crate::either!(__impl $i, run!($f))
     }};
 
     // Termination clause
     (__impl $i:expr, $f:ident!( $( $args:tt )* ),) => { // 6
-        either!(__impl $i, $f!($($args)*) __end)
+        $crate::either!(__impl $i, $f!($($args)*) __end)
     };
 
     // Termination clause
@@ -533,7 +538,7 @@ macro_rules! either {
     // Internal Loop Implementation
     (__impl $i:expr, $f:ident, $( $rest:tt )* ) => {{ // 9
         use $crate::run;
-        either!(__impl $i, run!($f), $( $rest )* )
+        $crate::either!(__impl $i, run!($f), $( $rest )* )
     }}
 }
 
@@ -582,11 +587,11 @@ where
 macro_rules! optional {
     ($i:expr, $f:ident) => {{
         use $crate::run;
-        optional!(__impl $i, run!($f))
+        $crate::optional!(__impl $i, run!($f))
     }};
 
     ($i:expr, $f:ident!( $( $args:tt )* ) ) => {
-        optional!(__impl $i, $f!( $( $args )* ))
+        $crate::optional!(__impl $i, $f!( $( $args )* ))
     };
 
     (__impl $i:expr, $f:ident!( $( $args:tt )* )) => {{
@@ -653,7 +658,7 @@ macro_rules! repeat {
 
     ($i:expr, $f:ident) => {{
         use $crate::run;
-        repeat!($i, run!($f))
+        $crate::repeat!($i, run!($f))
     }};
 }
 
@@ -709,17 +714,20 @@ macro_rules! separated {
         }
     }};
 
-    ($i:expr, $sep_rule:ident, $item_rule:ident ) => {
-        separated!($i, $crate::run!($sep_rule), $crate::run!($item_rule))
-    };
+    ($i:expr, $sep_rule:ident, $item_rule:ident ) => {{
+        use $crate::run;
+        $crate::separated!($i, run!($sep_rule), run!($item_rule))
+    }};
 
-    ($i:expr, $sep_rule:ident!( $( $args:tt )* ), $item_rule:ident ) => {
-        separated!($i, $sep_rule!($($args)*), $crate::run!($item_rule))
-    };
+    ($i:expr, $sep_rule:ident!( $( $args:tt )* ), $item_rule:ident ) => {{
+        use $crate::run;
+        $crate::separated!($i, $sep_rule!($($args)*), run!($item_rule))
+    }};
 
-    ($i:expr, $sep_rule:ident, $item_rule:ident!( $( $args:tt )* ) ) => {
-        separated!($i, $crate::run!($sep_rule), $item_rule!($($args)*))
-    };
+    ($i:expr, $sep_rule:ident, $item_rule:ident!( $( $args:tt )* ) ) => {{
+        use $crate::run;
+        $crate::separated!($i, run!($sep_rule), $item_rule!($($args)*))
+    }};
 }
 
 /// Convenience macro for looking for a specific text token in a byte input stream.
@@ -811,9 +819,10 @@ macro_rules! until {
         pfn()
     }};
 
-    ($i:expr, $rule:ident) => {
-        until!($i, $crate::run!($rule))
-    };
+    ($i:expr, $rule:ident) => {{
+        use $crate::run;
+        $crate::until!($i, run!($rule))
+    }};
 }
 
 /// Discards the output of a combinator rule when it completes and just returns `()`.
@@ -822,7 +831,7 @@ macro_rules! until {
 macro_rules! discard {
     ($i:expr, $rule:ident) => {{
         use $crate::run;
-        discard!($i, run!($rule))
+        $crate::discard!($i, run!($rule))
     }};
 
     ($i:expr, $rule:ident!( $( $args:tt )* ) ) => {{
@@ -904,11 +913,13 @@ macro_rules! make_fn {
     };
 
     ($name:ident<$i:ty, $o:ty>, $rule:ident) => {
-        make_fn!($name<$i, $o>, $crate::run!($rule));
+        use $crate::run
+        $crate::make_fn!($name<$i, $o>, run!($rule));
     };
 
     (pub $name:ident<$i:ty, $o:ty>, $rule:ident) => {
-        make_fn!(pub $name<$i, $o>, $crate::run!($rule));
+        use $crate::run
+        $crate::make_fn!(pub $name<$i, $o>, run!($rule));
     };
 }
 
@@ -919,7 +930,7 @@ macro_rules! make_fn {
 #[macro_export]
 macro_rules! input {
     ($i:expr) => {
-        input!($i,)
+        $crate::input!($i,)
     };
 
     ($i:expr,) => {{
@@ -976,7 +987,7 @@ macro_rules! consume_all {
 
     ($i:expr, $rule:ident) => {{
         use $crate::run;
-        consume_all!($i, run!($rule))
+        $crate::consume_all!($i, run!($rule))
     }}
 }
 

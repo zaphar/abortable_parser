@@ -403,6 +403,19 @@ fn test_until() {
 }
 
 #[test]
+fn test_until_with_function_composition() {
+    let input_str = "foo ";
+    let iter = StrIter::new(input_str);
+    let result = until!(iter, ascii_ws);
+    assert!(result.is_complete());
+    if let Result::Complete(i, o) = result {
+        assert_eq!(i.get_offset(), 3);
+        assert_eq!(o.len(), 3);
+        assert_eq!(o, "foo");
+    }
+}
+
+#[test]
 fn test_until_abort() {
     let input_str = "foo ";
     let iter = SliceIter::new(input_str.as_bytes());
